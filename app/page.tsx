@@ -75,16 +75,12 @@ export default function HomePage() {
             className="w-full h-full object-cover scale-105"
           >
             <source
+              src="/videos/hero-mountain-trail.webm"
+              type="video/webm"
+            />
+            <source
               src="/videos/hero-cycling.mp4"
               type="video/mp4"
-            />
-            <source
-              src="/videos/hero-cycling-2.mp4"
-              type="video/mp4"
-            />
-            <source
-              src="/videos/hero-cycling.webm"
-              type="video/webm"
             />
           </video>
           {/* High-End Dark Gradient Overlay for Maximum Text Contrast */}
@@ -123,8 +119,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Banner de Beneficios Destacados */}
-          <div className="lg:col-span-4 grid grid-cols-2 gap-3.5 text-left">
+          {/* Banner de Beneficios Destacados (3 Tarjetas) */}
+          <div className="lg:col-span-4 flex flex-col sm:grid sm:grid-cols-3 lg:flex lg:flex-col gap-3.5 text-left">
             <div className="bg-zinc-900/90 border border-zinc-800 p-5 rounded-2xl">
               <CreditCard className="w-6 h-6 text-amber-400 mb-2" />
               <span className="font-heading font-black text-lg text-white block">3 Y 6 CUOTAS</span>
@@ -139,11 +135,6 @@ export default function HomePage() {
               <Truck className="w-6 h-6 text-sky-400 mb-2" />
               <span className="font-heading font-black text-lg text-white block">ENVÍOS</span>
               <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">A todo el país</span>
-            </div>
-            <div className="bg-zinc-900/90 border border-zinc-800 p-5 rounded-2xl">
-              <ShieldCheck className="w-6 h-6 text-purple-400 mb-2" />
-              <span className="font-heading font-black text-lg text-white block">FACTURA A Y B</span>
-              <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">Comprobantes oficiales</span>
             </div>
           </div>
         </div>
