@@ -486,31 +486,36 @@ export default function NuevoProductoPage() {
 
             {/* 3. Matriz de Variantes con Paleta de Colores Interactiva */}
             <div className="bg-white border border-zinc-200 rounded-3xl p-6 sm:p-8 shadow-xs">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-zinc-100 pb-4 mb-6">
-                <div>
-                  <h2 className="font-heading font-black text-lg text-zinc-950 flex items-center gap-2">
-                    <Barcode className="w-5 h-5 text-zinc-950" /> 3. Matriz de Variantes, Paleta de Colores & Stock
-                  </h2>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Selecciona el color exacto con la paleta interactiva, talle, precio y código de barras.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={addVariantRow}
-                  className="bg-zinc-950 text-white px-4 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 flex items-center gap-1.5 shadow-sm self-start sm:self-auto"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Agregar Variante
-                </button>
+              <div className="border-b border-zinc-100 pb-4 mb-6">
+                <h2 className="font-heading font-black text-lg text-zinc-950 flex items-center gap-2">
+                  <Barcode className="w-5 h-5 text-zinc-950" /> 3. Matriz de Variantes, Paleta de Colores & Stock
+                </h2>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Configura cada combinación de talle, color interactivo, precio, stock y código de barras.
+                </p>
               </div>
 
               <div className="space-y-6">
-                {variants.map((v) => (
+                {variants.map((v, index) => (
                   <div
                     key={v.id}
                     className="p-5 bg-zinc-50/90 border border-zinc-200 rounded-2xl space-y-4"
                   >
+                    <div className="flex justify-between items-center border-b border-zinc-200/60 pb-2">
+                      <span className="text-[11px] font-heading font-black uppercase tracking-wider text-zinc-700">
+                        Opción #{index + 1}: {v.size ? `Talle ${v.size}` : 'Sin talle'} • {v.color || 'Color a definir'}
+                      </span>
+                      {variants.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeVariantRow(v.id)}
+                          className="text-xs font-heading font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Eliminar esta variante
+                        </button>
+                      )}
+                    </div>
+
                     {/* Campos de Talle, Rodado, Precio y Stock */}
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                       <div className="sm:col-span-2">
@@ -563,7 +568,7 @@ export default function NuevoProductoPage() {
                         />
                       </div>
 
-                      <div className="sm:col-span-2">
+                      <div className="sm:col-span-3">
                         <label className="block text-[10px] font-heading font-bold uppercase text-zinc-500 mb-1">
                           Código de Barras / SKU
                         </label>
@@ -573,17 +578,6 @@ export default function NuevoProductoPage() {
                           onChange={(e) => updateVariantField(v.id, 'barcode', e.target.value)}
                           className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-[11px] font-mono"
                         />
-                      </div>
-
-                      <div className="sm:col-span-1 flex justify-center pb-1">
-                        <button
-                          type="button"
-                          disabled={variants.length <= 1}
-                          onClick={() => removeVariantRow(v.id)}
-                          className="p-2 text-zinc-400 hover:text-rose-600 disabled:opacity-20 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
 
@@ -644,6 +638,17 @@ export default function NuevoProductoPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Botón "+ Agregar Variante" Ubicado Debajo de la Selección de Talle y Color */}
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={addVariantRow}
+                  className="w-full py-4 border-2 border-dashed border-zinc-300 hover:border-zinc-950 bg-zinc-50 hover:bg-zinc-100/80 rounded-2xl flex items-center justify-center gap-2 text-xs font-heading font-black uppercase tracking-wider text-zinc-900 transition-all shadow-xs active:scale-99"
+                >
+                  <Plus className="w-4 h-4 text-zinc-950" /> + Agregar Otra Variante (Talle / Color)
+                </button>
               </div>
             </div>
 
