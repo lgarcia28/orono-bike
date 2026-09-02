@@ -23,6 +23,13 @@ import {
 export default function HomePage() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState<CartDrawerItem[]>([]);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  React.useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.playbackRate = 0.6; // Efecto cámara lenta elegante y suave
+    }
+  }, []);
 
   const handleAddToCart = (variant: ProductVariant, quantity: number) => {
     const parentProduct =
@@ -51,15 +58,19 @@ export default function HomePage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      {/* Hero Section con Video de Fondo de Ciclista Solitario en la Montaña */}
+      {/* Hero Section con Video de Fondo en Cámara Lenta */}
       <section className="relative text-white overflow-hidden py-28 sm:py-40 px-4 sm:px-6 border-b border-zinc-800">
         {/* Background Video */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           <video
+            ref={videoRef}
             autoPlay
             loop
             muted
             playsInline
+            onLoadedMetadata={(e) => {
+              e.currentTarget.playbackRate = 0.6;
+            }}
             poster="https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=1920&q=80"
             className="w-full h-full object-cover scale-105"
           >
