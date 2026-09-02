@@ -15,7 +15,6 @@ import {
   Truck,
   Phone,
   LayoutDashboard,
-  MonitorDot,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -59,7 +58,7 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
 
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4">
-        {/* Brand Logo (Modern Sports Typography) */}
+        {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-3 shrink-0 group">
           <div className="w-10 h-10 bg-zinc-950 text-white font-heading font-black flex items-center justify-center rounded-lg text-lg tracking-tighter shadow-md group-hover:bg-zinc-800 transition-colors">
             OB
@@ -92,16 +91,10 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
             <Wrench className="w-3.5 h-3.5" /> Taller & Turnos
           </Link>
           <Link
-            href="/pos"
-            className="flex items-center gap-1 text-zinc-500 hover:text-zinc-950 transition-colors"
-          >
-            <MonitorDot className="w-3.5 h-3.5" /> POS Mostrador
-          </Link>
-          <Link
             href="/admin"
-            className="flex items-center gap-1 text-zinc-950 bg-zinc-900 text-white px-3 py-1.5 rounded-lg hover:bg-zinc-800 transition-colors text-[11px]"
+            className="flex items-center gap-1.5 text-white bg-zinc-950 px-3.5 py-2 rounded-lg hover:bg-zinc-800 transition-colors text-[11px] font-bold shadow-xs"
           >
-            <LayoutDashboard className="w-3.5 h-3.5" /> Panel Dueño
+            <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" /> Panel Dueño
           </Link>
         </nav>
 
@@ -153,20 +146,12 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
               <Wrench className="w-4 h-4 text-zinc-400" />
             </Link>
             <Link
-              href="/pos"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 border-b border-zinc-100 flex items-center justify-between"
-            >
-              <span>Punto de Venta Mostrador (POS)</span>
-              <MonitorDot className="w-4 h-4 text-zinc-400" />
-            </Link>
-            <Link
               href="/admin"
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 bg-zinc-950 text-white px-4 rounded-xl flex items-center justify-between"
             >
-              <span>Panel de Gestión para el Dueño</span>
-              <LayoutDashboard className="w-4 h-4 text-white" />
+              <span>Panel de Gestión (Dueño)</span>
+              <LayoutDashboard className="w-4 h-4 text-emerald-400" />
             </Link>
           </nav>
         </div>

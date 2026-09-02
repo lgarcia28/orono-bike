@@ -27,7 +27,7 @@ export default function HomePage() {
 
   React.useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.playbackRate = 0.6; // Efecto cámara lenta elegante y suave
+      videoRef.current.playbackRate = 0.75; // Cámara lenta fluida y cinematográfica
     }
   }, []);
 
@@ -58,7 +58,7 @@ export default function HomePage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      {/* Hero Section con Video de Fondo en Cámara Lenta */}
+      {/* Hero Section con Video de Fondo en Cámara Lenta Cinemática */}
       <section className="relative text-white overflow-hidden py-28 sm:py-40 px-4 sm:px-6 border-b border-zinc-800">
         {/* Background Video */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
@@ -69,11 +69,19 @@ export default function HomePage() {
             muted
             playsInline
             onLoadedMetadata={(e) => {
-              e.currentTarget.playbackRate = 0.6;
+              e.currentTarget.playbackRate = 0.75;
             }}
             poster="https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=1920&q=80"
             className="w-full h-full object-cover scale-105"
           >
+            <source
+              src="/videos/hero-cycling.mp4"
+              type="video/mp4"
+            />
+            <source
+              src="/videos/hero-cycling-2.mp4"
+              type="video/mp4"
+            />
             <source
               src="/videos/hero-cycling.webm"
               type="video/webm"
@@ -81,7 +89,7 @@ export default function HomePage() {
           </video>
           {/* High-End Dark Gradient Overlay for Maximum Text Contrast */}
           <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/50 backdrop-blur-[0.5px]" />
-          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-0 bg-black/35" />
         </div>
         
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
@@ -241,8 +249,7 @@ export default function HomePage() {
             <ul className="space-y-2.5 text-zinc-400">
               <li><a href="#bicicletas" className="hover:text-white transition-colors">Catálogo de Bicicletas</a></li>
               <li><Link href="/taller" className="hover:text-white transition-colors">Turnos de Taller Mecánico</Link></li>
-              <li><Link href="/pos" className="hover:text-white transition-colors">Punto de Venta POS Mostrador</Link></li>
-              <li><Link href="/admin" className="text-zinc-300 hover:text-white font-bold transition-colors flex items-center gap-1"><LayoutDashboard className="w-3.5 h-3.5" /> Panel de Gestión (Dueño)</Link></li>
+              <li><Link href="/admin" className="text-zinc-300 hover:text-white font-bold transition-colors flex items-center gap-1"><LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" /> Panel de Gestión (Dueño)</Link></li>
             </ul>
           </div>
           <div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Header } from '@/app/components/layout/Header';
 import { ORO_BIKES_CATALOG } from '@/lib/data/bikes';
 import { ProductWithVariants, ProductVariant } from '@/lib/supabase/types';
+import { PointOfSaleInterface } from '@/app/components/pos/PointOfSaleInterface';
 import {
   LayoutDashboard,
   Package,
@@ -35,9 +36,10 @@ import {
   Calendar,
   Layers,
   Bike,
+  MonitorDot,
 } from 'lucide-react';
 
-type AdminTab = 'ventas' | 'inventario' | 'facturacion' | 'taller' | 'caja';
+type AdminTab = 'ventas' | 'pos' | 'inventario' | 'facturacion' | 'taller' | 'caja';
 type TimeFilter = 'hoy' | 'semana' | 'mes';
 
 export default function AdminDashboardPage() {
@@ -56,7 +58,6 @@ export default function AdminDashboardPage() {
   const [invoiceType, setInvoiceType] = useState<'B' | 'A'>('B');
   const [invoiceCustomer, setInvoiceCustomer] = useState({ name: '', doc: '', email: '' });
   const [invoiceAmount, setInvoiceAmount] = useState<number>(0);
-  const [invoiceConcept, setInvoiceConcept] = useState('Venta de Bicicleta / Indumentaria');
   const [invoicesList, setInvoicesList] = useState([
     {
       id: 'FAC-0001-00004521',
@@ -331,7 +332,7 @@ export default function AdminDashboardPage() {
               Control General del Negocio
             </h1>
             <p className="text-xs text-zinc-400 mt-1">
-              Administración de ventas, stock físico, actualización masiva de precios, taller y facturación.
+              Administración de ventas, punto de venta (POS), stock físico, actualización masiva de precios, taller y facturación.
             </p>
           </div>
 
@@ -342,12 +343,12 @@ export default function AdminDashboardPage() {
             >
               <Plus className="w-4 h-4" /> Cargar Nueva Bici
             </Link>
-            <Link
-              href="/pos"
-              className="border border-zinc-700 hover:border-white bg-zinc-900 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-3 rounded-xl flex items-center gap-2 transition-colors"
+            <button
+              onClick={() => setActiveTab('pos')}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-3 rounded-xl flex items-center gap-2 transition-colors shadow-sm"
             >
-              Terminal POS
-            </Link>
+              <MonitorDot className="w-4 h-4" /> Abrir POS Mostrador
+            </button>
           </div>
         </div>
 
@@ -362,6 +363,16 @@ export default function AdminDashboardPage() {
             }`}
           >
             <TrendingUp className="w-4 h-4" /> Control de Ventas
+          </button>
+          <button
+            onClick={() => setActiveTab('pos')}
+            className={`px-5 py-3 font-heading text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+              activeTab === 'pos'
+                ? 'border-emerald-400 text-emerald-400 font-black'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <MonitorDot className="w-4 h-4" /> POS Mostrador
           </button>
           <button
             onClick={() => setActiveTab('inventario')}
@@ -408,6 +419,26 @@ export default function AdminDashboardPage() {
 
       {/* Tab Contents */}
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
+        {/* ========================================================= */}
+        {/* TAB: POS MOSTRADOR (PUNTO DE VENTA)                       */}
+        {/* ========================================================= */}
+        {activeTab === 'pos' && (
+          <div className="space-y-4 animate-fadeIn">
+            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-xs flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-heading font-bold text-zinc-800 uppercase tracking-wider">
+                  Caja Mostrador Activa • Bv. Nicasio Oroño 1234
+                </span>
+              </div>
+              <span className="text-xs font-mono text-zinc-500">
+                Lector de código de barras conectado
+              </span>
+            </div>
+            <PointOfSaleInterface />
+          </div>
+        )}
+
         {/* ========================================================= */}
         {/* TAB 1: CONTROL DE VENTAS & MÉTRICAS                       */}
         {/* ========================================================= */}
@@ -726,7 +757,7 @@ export default function AdminDashboardPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-200 font-medium">
                     {filteredProducts.map((p) =>
-                      p.variants.map((v, vIndex) => (
+                      p.variants.map((v) => (
                         <tr key={`${p.id}-${v.id}`} className="hover:bg-zinc-50/80 transition-colors">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
