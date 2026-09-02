@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Header } from '@/app/components/layout/Header';
 import { CartDrawer, CartDrawerItem } from '@/app/components/layout/CartDrawer';
 import { CatalogSection } from '@/app/components/catalog/CatalogSection';
-import { ORO_BIKES_CATALOG } from '@/lib/data/bikes';
+import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductVariant } from '@/lib/supabase/types';
 import {
   Wrench,
@@ -33,7 +33,7 @@ export default function HomePage() {
 
   const handleAddToCart = (variant: ProductVariant, quantity: number) => {
     const parentProduct =
-      ORO_BIKES_CATALOG.find((p) => p.id === variant.product_id) || ORO_BIKES_CATALOG[0];
+      ALL_PRODUCTS_CATALOG.find((p) => p.id === variant.product_id) || ALL_PRODUCTS_CATALOG[0];
 
     setCartItems((prev) => {
       const existing = prev.find((item) => item.variant.id === variant.id);
@@ -154,10 +154,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Main Dynamic Multi-Bike Catalog Section */}
+      {/* Main Dynamic Multi-Product Catalog Section (Bicicletas, Componentes, Accesorios) */}
       <main className="flex-1 bg-white">
         <CatalogSection
-          products={ORO_BIKES_CATALOG}
+          products={ALL_PRODUCTS_CATALOG}
           onAddToCart={handleAddToCart}
         />
       </main>

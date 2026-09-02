@@ -110,13 +110,15 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
             </div>
           </div>
 
-          {/* Talles & CTA Button */}
+          {/* Talles / Variantes & CTA Button */}
           <div className="pt-2 flex items-center justify-between">
-            <span className="text-[11px] font-heading font-bold text-zinc-500 uppercase tracking-wider">
-              Talles: {sizes.join(' · ')}
+            <span className="text-[11px] font-heading font-bold text-zinc-500 uppercase tracking-wider truncate max-w-[65%]">
+              {product.category === 'COMPONENTES' || product.category === 'ACCESORIOS'
+                ? `Opción: ${sizes[0] || 'Estándar'}`
+                : `Talles: ${sizes.join(' · ')}`}
             </span>
 
-            <span className="text-xs font-heading font-extrabold text-zinc-950 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+            <span className="text-xs font-heading font-extrabold text-zinc-950 group-hover:translate-x-1 transition-transform flex items-center gap-1 shrink-0">
               Ver Detalle <ChevronRight className="w-3.5 h-3.5" />
             </span>
           </div>

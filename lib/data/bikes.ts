@@ -1,7 +1,7 @@
 import { ProductWithVariants } from '@/lib/supabase/types';
 
 // ==========================================
-// 1. CATÁLOGO DE BICICLETAS OFICIALES
+// 1. CATÁLOGO DE BICICLETAS (6 MODELOS PRO)
 // ==========================================
 export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
   {
@@ -359,7 +359,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
 ];
 
 // ==========================================
-// 2. CATÁLOGO DE COMPONENTES DE TRANSMISIÓN, FRENOS Y RUEDAS
+// 2. CATÁLOGO DE COMPONENTES (6 EJEMPLOS PRO)
 // ==========================================
 export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
   {
@@ -505,6 +505,59 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
   },
   {
     id: 'comp-04',
+    title: 'Horquilla RockShox SID Ultimate Race Day 120mm Boost',
+    slug: 'horquilla-rockshox-sid-ultimate-race-day-120mm',
+    brand: 'ROCKSHOX',
+    category: 'COMPONENTES',
+    description: 'La horquilla de suspensión para XC más liviana jamás creada, cartucho Charger Race Day 2 y bloqueo al manubrio TwistLoc.',
+    specs: {
+      recorrido: '120mm DebonAir+',
+      eje: 'Boost 15x110mm Maxle Stealth',
+      peso: '1.480 kg',
+    },
+    images: [
+      'https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=1200&q=80',
+    ],
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    variants: [
+      {
+        id: 'var-c04-sid-blue',
+        product_id: 'comp-04',
+        sku: 'RS-SID-ULT-BLU',
+        barcode: '77910400101',
+        size: '29" Boost (Offset 44mm)',
+        wheel_size: '29"',
+        color: 'Signature SID Blue',
+        color_hex: '#0284c7',
+        price: 1250000,
+        compare_at_price: 1390000,
+        stock: 2,
+        min_stock_alert: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'var-c04-sid-blk',
+        product_id: 'comp-04',
+        sku: 'RS-SID-ULT-BLK',
+        barcode: '77910400102',
+        size: '29" Boost (Offset 44mm)',
+        wheel_size: '29"',
+        color: 'Gloss Black',
+        color_hex: '#18181b',
+        price: 1250000,
+        compare_at_price: 1390000,
+        stock: 3,
+        min_stock_alert: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  },
+  {
+    id: 'comp-05',
     title: 'Pedales Automáticos Shimano Deore XT M8100 SPD',
     slug: 'pedales-automaticos-shimano-deore-xt-m8100-spd',
     brand: 'SHIMANO',
@@ -515,17 +568,17 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
       calas: 'Incluye calas Shimano SM-SH51',
     },
     images: [
-      'https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     variants: [
       {
-        id: 'var-c04-spd',
-        product_id: 'comp-04',
+        id: 'var-c05-spd',
+        product_id: 'comp-05',
         sku: 'SHI-PD-M8100',
-        barcode: '77910400101',
+        barcode: '77910500101',
         size: 'SPD Standard',
         wheel_size: 'Universal',
         color: 'Negro / Plata XT',
@@ -539,10 +592,47 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
       },
     ],
   },
+  {
+    id: 'comp-06',
+    title: 'Asiento Ergonómico Prologo Dimension Tirox 143mm',
+    slug: 'asiento-prologo-dimension-tirox-143mm',
+    brand: 'SARS',
+    category: 'COMPONENTES',
+    description: 'Asiento corto ergonómico de alta gama con canal central PAS para alivio perineal y rieles de aleación de titanio Tirox.',
+    specs: {
+      dimensiones: '245 x 143 mm',
+      rieles: 'Tirox 7mm (aleación ligera)',
+      peso: '179 gr',
+    },
+    images: [
+      'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=1200&q=80',
+    ],
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    variants: [
+      {
+        id: 'var-c06-tirox',
+        product_id: 'comp-06',
+        sku: 'PRO-DIM-143-BLK',
+        barcode: '77910600101',
+        size: '143mm Ancho',
+        wheel_size: 'Universal',
+        color: 'Matte Hard Black',
+        color_hex: '#18181b',
+        price: 195000,
+        compare_at_price: 220000,
+        stock: 4,
+        min_stock_alert: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  },
 ];
 
 // ==========================================
-// 3. CATÁLOGO DE ACCESORIOS, CASCOS Y EQUIPAMIENTO
+// 3. CATÁLOGO DE ACCESORIOS (6 EJEMPLOS PRO)
 // ==========================================
 export const ORO_ACCESSORIES_CATALOG: ProductWithVariants[] = [
   {
@@ -599,7 +689,7 @@ export const ORO_ACCESSORIES_CATALOG: ProductWithVariants[] = [
   },
   {
     id: 'acc-02',
-    title: 'Ciclocomputador GPS Garmin Edge 540',
+    title: 'Ciclocomputador GPS Garmin Edge 540 Solar',
     slug: 'ciclocomputador-gps-garmin-edge-540',
     brand: 'GARMIN',
     category: 'ACCESORIOS',
@@ -705,9 +795,84 @@ export const ORO_ACCESSORIES_CATALOG: ProductWithVariants[] = [
       },
     ],
   },
+  {
+    id: 'acc-05',
+    title: 'Inflador de Pie de Taller Beto Pro con Manómetro 160 PSI',
+    slug: 'inflador-pie-taller-beto-pro-manometro',
+    brand: 'RALEIGH',
+    category: 'ACCESORIOS',
+    description: 'Cuerpo de acero de alta resistencia con cabezal Dual-Head inteligente para válvulas Presta y Schrader, manómetro de 2.5" montado en base.',
+    specs: {
+      presion_max: '160 PSI / 11 BAR',
+      valvulas: 'Presta, Schrader y Dunlop automática',
+    },
+    images: [
+      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=1200&q=80',
+    ],
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    variants: [
+      {
+        id: 'var-a05-pump',
+        product_id: 'acc-05',
+        sku: 'BET-PMP-160',
+        barcode: '77920500101',
+        size: 'Altura 68cm',
+        wheel_size: 'Universal',
+        color: 'Gris Mate / Amarillo',
+        color_hex: '#71717a',
+        price: 58000,
+        compare_at_price: 68000,
+        stock: 9,
+        min_stock_alert: 3,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  },
+  {
+    id: 'acc-06',
+    title: 'Bolso de Asiento Impermeable Bikepacking 10 Litros',
+    slug: 'bolso-asiento-bikepacking-impermeable-10l',
+    brand: 'MOOVE',
+    category: 'ACCESORIOS',
+    description: 'Bolso para bajo asiento con cierre enrollable Roll-Top 100% impermeable, válvula de compresión y anclajes reforzados anti-balanceo.',
+    specs: {
+      capacidad: '10 Litros expansible',
+      material: 'Nylon TPU 600D sellado por alta frecuencia',
+      peso: '380 gr',
+    },
+    images: [
+      'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=1200&q=80',
+    ],
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    variants: [
+      {
+        id: 'var-a06-bag',
+        product_id: 'acc-06',
+        sku: 'MOV-BAG-10L',
+        barcode: '77920600101',
+        size: '10 Litros',
+        wheel_size: 'Universal',
+        color: 'Negro / Reflectivo',
+        color_hex: '#18181b',
+        price: 89000,
+        compare_at_price: 105000,
+        stock: 6,
+        min_stock_alert: 2,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  },
 ];
 
-// Catálogo Global Consolidado
+// ==========================================
+// CATÁLOGO COMPLETO CONSOLIDADO (18 PRODUCTOS)
+// ==========================================
 export const ALL_PRODUCTS_CATALOG: ProductWithVariants[] = [
   ...ORO_BIKES_CATALOG,
   ...ORO_COMPONENTS_CATALOG,
