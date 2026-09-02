@@ -17,8 +17,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
       peso: '10.2 kg',
     },
     images: [
-      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1576435728678-68d0fbf94e91?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -90,7 +89,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
       peso: '11.4 kg',
     },
     images: [
-      'https://images.unsplash.com/photo-1576435728678-68d0fbf94e91?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -218,7 +217,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
       peso: '9.8 kg',
     },
     images: [
-      'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -274,7 +273,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
       peso: '8.4 kg',
     },
     images: [
-      'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -330,7 +329,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
       peso: '10.8 kg',
     },
     images: [
-      'https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1571068316344-75bc76f77890?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -370,7 +369,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
       peso: '13.5 kg',
     },
     images: [
-      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1509099836639-18ba1795216d?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -426,7 +425,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
       peso: '10.1 kg',
     },
     images: [
-      'https://images.unsplash.com/photo-1576435728678-68d0fbf94e91?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1502744688674-c619d1586c9e?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
