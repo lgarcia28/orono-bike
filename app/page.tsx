@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Phone,
   MessageCircle,
+  LayoutDashboard,
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -50,7 +51,7 @@ export default function HomePage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      {/* Hero Section con Video de Fondo de Ciclismo */}
+      {/* Hero Section con Video de Fondo de Ciclista Solitario en la Montaña */}
       <section className="relative text-white overflow-hidden py-28 sm:py-40 px-4 sm:px-6 border-b border-zinc-800">
         {/* Background Video */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
@@ -83,8 +84,8 @@ export default function HomePage() {
               BICICLETAS DE ALTO RENDIMIENTO & TALLER.
             </h1>
 
-            <p className="text-zinc-300 text-sm sm:text-base max-w-2xl leading-relaxed font-normal">
-              Especialistas en ciclismo de competición, gravel y montaña. Distribuidor oficial de Specialized, Cannondale, Trek, Scott y Cervélo. Stock físico garantizado y facturación electrónica ARCA directa.
+            <p className="text-zinc-200 text-sm sm:text-base max-w-2xl leading-relaxed font-bold tracking-wide uppercase">
+              Representante oficial en Rosario de: SCOTT, VOLTA, RALEIGH, MOOVE, ZION, SARS Y OTROS.
             </p>
 
             <div className="pt-2 flex flex-wrap gap-4 items-center">
@@ -117,28 +118,29 @@ export default function HomePage() {
             </div>
             <div className="bg-zinc-900/90 border border-zinc-800 p-5 rounded-2xl">
               <Truck className="w-6 h-6 text-sky-400 mb-2" />
-              <span className="font-heading font-black text-lg text-white block">ANDREANI</span>
-              <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">Envíos a todo el país</span>
+              <span className="font-heading font-black text-lg text-white block">ENVÍOS</span>
+              <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">A todo el país</span>
             </div>
             <div className="bg-zinc-900/90 border border-zinc-800 p-5 rounded-2xl">
               <ShieldCheck className="w-6 h-6 text-purple-400 mb-2" />
-              <span className="font-heading font-black text-lg text-white block">ARCA AFIP</span>
-              <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">Factura A y B</span>
+              <span className="font-heading font-black text-lg text-white block">FACTURA A Y B</span>
+              <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">Comprobantes oficiales</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Brand Logos Strip (Estilo Fusion Bikes) */}
+      {/* Brand Logos Strip */}
       <section className="bg-zinc-100/70 border-b border-zinc-200 py-6 px-4">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center sm:justify-between gap-6 text-zinc-400 font-heading font-black text-sm uppercase tracking-widest">
-          <span className="hover:text-zinc-950 transition-colors">SPECIALIZED</span>
-          <span className="hover:text-zinc-950 transition-colors">CANNONDALE</span>
-          <span className="hover:text-zinc-950 transition-colors">TREK</span>
           <span className="hover:text-zinc-950 transition-colors">SCOTT</span>
-          <span className="hover:text-zinc-950 transition-colors">CERVÉLO</span>
+          <span className="hover:text-zinc-950 transition-colors">VOLTA</span>
+          <span className="hover:text-zinc-950 transition-colors">RALEIGH</span>
+          <span className="hover:text-zinc-950 transition-colors">MOOVE</span>
+          <span className="hover:text-zinc-950 transition-colors">ZION</span>
+          <span className="hover:text-zinc-950 transition-colors">SARS</span>
           <span className="hover:text-zinc-950 transition-colors">SHIMANO</span>
-          <span className="hover:text-zinc-950 transition-colors">SRAM</span>
+          <span className="hover:text-zinc-950 transition-colors">Y OTROS</span>
         </div>
       </section>
 
@@ -161,13 +163,13 @@ export default function HomePage() {
               Taller Mecánico Especializado en Bv. Oroño
             </h2>
             <p className="text-zinc-600 text-sm leading-relaxed">
-              Mantenimiento integral de suspensiones (Fox, RockShox), purga y cambio de fluidos hidráulicos Shimano/SRAM, diagnóstico electrónico inalámbrico AXS / Di2 y tubelizados de alta presión.
+              Mantenimiento integral de suspensiones, purga y cambio de fluidos hidráulicos, calibraciones y revisiones, etc.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2 text-xs">
               <div className="flex items-center gap-2.5 text-zinc-900 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Herramientas Park Tool de precisión</span>
+                <span>Herramientas de precisión oficiales</span>
               </div>
               <div className="flex items-center gap-2.5 text-zinc-900 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -211,7 +213,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Modern Footer */}
+      {/* Modern Clean Footer */}
       <footer className="bg-zinc-950 text-zinc-400 py-16 px-4 sm:px-6 border-t border-zinc-800 text-xs">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
           <div>
@@ -229,12 +231,13 @@ export default function HomePage() {
               <li><a href="#bicicletas" className="hover:text-white transition-colors">Catálogo de Bicicletas</a></li>
               <li><Link href="/taller" className="hover:text-white transition-colors">Turnos de Taller Mecánico</Link></li>
               <li><Link href="/pos" className="hover:text-white transition-colors">Punto de Venta POS Mostrador</Link></li>
+              <li><Link href="/admin" className="text-zinc-300 hover:text-white font-bold transition-colors flex items-center gap-1"><LayoutDashboard className="w-3.5 h-3.5" /> Panel de Gestión (Dueño)</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="text-white font-heading font-bold uppercase tracking-wider mb-4 text-xs">Medios de Pago & Envíos</h4>
             <p className="text-zinc-400 leading-relaxed">
-              Mercado Pago, Tarjetas de Crédito con 3 y 6 Cuotas Sin Interés, Transferencia Bancaria (10% OFF). Envíos asegurados a todo el país vía Andreani.
+              Tarjetas de Crédito con 3 y 6 Cuotas Sin Interés, Transferencia Bancaria (10% OFF), Efectivo y Débito. Envíos asegurados a todo el país.
             </p>
           </div>
           <div>
@@ -246,9 +249,9 @@ export default function HomePage() {
             </p>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto border-t border-zinc-800 mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center text-zinc-600 font-heading text-[11px] gap-4">
+        <div className="max-w-7xl mx-auto border-t border-zinc-800 mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center text-zinc-500 font-heading text-[11px] gap-4">
           <span>© 2026 Oroño Bike. Todos los derechos reservados.</span>
-          <span>Inspirado en la estética de alta gama Fusion Bikes & Bertolina Bikes</span>
+          <span>Bv. Nicasio Oroño 1234 • Rosario, Santa Fe</span>
         </div>
       </footer>
 

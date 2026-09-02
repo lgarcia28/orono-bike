@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ProductWithVariants, ProductVariant } from '@/lib/supabase/types';
 import { ProductCard } from '@/app/components/catalog/ProductCard';
 import { ModernProductDetail } from '@/app/components/catalog/ModernProductDetail';
@@ -11,15 +11,9 @@ interface CatalogSectionProps {
   onAddToCart: (variant: ProductVariant, quantity: number) => void;
 }
 
-const CATEGORIES = [
-  'Todas',
-  'MTB Cross Country',
-  'Gravel & Bikepacking',
-  'Ruta & Aero Competición',
-  'E-Bikes & Gravel',
-];
+const CATEGORIES = ['Todas', 'MTB', 'RUTA', 'GRAVEL', 'BMX', 'PASEO', 'NIÑOS'];
 
-const BRANDS = ['Todas', 'Specialized', 'Cannondale', 'Trek', 'Scott', 'Cervélo'];
+const BRANDS = ['Todas', 'SCOTT', 'VOLTA', 'RALEIGH', 'MOOVE', 'ZION', 'SARS'];
 
 export function CatalogSection({ products, onAddToCart }: CatalogSectionProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
@@ -28,8 +22,8 @@ export function CatalogSection({ products, onAddToCart }: CatalogSectionProps) {
   const [activeProduct, setActiveProduct] = useState<ProductWithVariants | null>(null);
   const [customBikes, setCustomBikes] = useState<ProductWithVariants[]>([]);
 
-  // Cargar bicicletas personalizadas guardadas
-  React.useEffect(() => {
+  // Cargar bicicletas personalizadas guardadas por el dueño
+  useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('orono_custom_bikes') || '[]');
       if (Array.isArray(stored)) {
@@ -48,8 +42,9 @@ export function CatalogSection({ products, onAddToCart }: CatalogSectionProps) {
   const filteredProducts = useMemo(() => {
     return allProducts.filter((p) => {
       const matchCategory =
-        selectedCategory === 'Todas' || p.category.toLowerCase().includes(selectedCategory.toLowerCase());
-      const matchBrand = selectedBrand === 'Todas' || p.brand.toLowerCase() === selectedBrand.toLowerCase();
+        selectedCategory === 'Todas' || p.category.toUpperCase() === selectedCategory.toUpperCase();
+      const matchBrand =
+        selectedBrand === 'Todas' || p.brand.toUpperCase() === selectedBrand.toUpperCase();
       const matchSearch =
         !searchQuery.trim() ||
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -85,30 +80,20 @@ export function CatalogSection({ products, onAddToCart }: CatalogSectionProps) {
             Catálogo de Bicicletas
           </h2>
           <p className="text-sm text-zinc-600 mt-2 max-w-xl leading-relaxed">
-            Explora las mejores bicicletas del mercado internacional con garantía oficial, stock en tiempo real y asesoramiento mecánico especializado en Rosario.
+            Explora las mejores bicicletas del mercado, con garantía oficial, stock en tiempo real y asesoramiento mecánico especializado en Rosario.
           </p>
         </div>
 
-        {/* Search Bar & Add Button */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-80">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Buscar por modelo, marca, grupo..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all shadow-xs"
-            />
-          </div>
-
-          <a
-            href="/admin/productos/nuevo"
-            className="shrink-0 bg-zinc-950 hover:bg-zinc-800 text-white px-4 py-3 rounded-xl font-heading text-xs font-bold uppercase tracking-wider transition-all shadow-sm flex items-center gap-1.5"
-            title="Cargar una nueva bicicleta al catálogo"
-          >
-            <span>+ Cargar Bici</span>
-          </a>
+        {/* Search Bar */}
+        <div className="relative w-full md:w-88">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+          <input
+            type="text"
+            placeholder="Buscar por modelo, marca, grupo..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all shadow-xs"
+          />
         </div>
       </div>
 
