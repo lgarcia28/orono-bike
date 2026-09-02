@@ -1451,14 +1451,14 @@ export default function AdminDashboardPage() {
                                   handleDeleteVariant(
                                     p.id,
                                     v.id,
-                                    `${p.title} - ${v.color} (${v.size})`
+                                    `${p.title} - ${v.size} / ${v.color}`
                                   )
                                 }
-                                title="Eliminar solo este color/variante"
+                                title="Borrar esta variante (talle/color)"
                                 className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center gap-1 text-[10px] font-heading font-bold"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Borrar Color</span>
+                                <span className="hidden sm:inline">Borrar</span>
                               </button>
                             </div>
                           </td>
