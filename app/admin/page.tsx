@@ -489,10 +489,38 @@ export default function AdminDashboardPage() {
     alert(`Precios actualizados en un ${bulkPercent > 0 ? '+' : ''}${bulkPercent}% exitosamente.`);
   };
 
-  // Dar de baja producto
-  const handleDeleteProduct = (productId: string) => {
-    if (confirm('¿Estás seguro de que deseas dar de baja este artículo del catálogo?')) {
-      setProducts((prev) => prev.filter((p) => p.id !== productId));
+  // Dar de baja solo una variante específica (ej. un solo color o talle)
+  const handleDeleteVariant = (productId: string, variantId: string, variantDesc: string) => {
+    if (confirm(`¿Deseas eliminar solo la variante "${variantDesc}" de este modelo?`)) {
+      setProducts((prev) => {
+        const updated = prev
+          .map((p) => {
+            if (p.id !== productId) return p;
+            const remainingVariants = p.variants.filter((v) => v.id !== variantId);
+            if (remainingVariants.length === 0) return null; // Si no quedan variantes, se elimina el producto
+            return { ...p, variants: remainingVariants };
+          })
+          .filter(Boolean) as ProductWithVariants[];
+
+        try {
+          localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+        } catch (e) {}
+
+        return updated;
+      });
+    }
+  };
+
+  // Dar de baja el producto completo con todos sus colores
+  const handleDeleteProduct = (productId: string, productTitle: string) => {
+    if (confirm(`¿Estás seguro de que deseas eliminar el modelo completo "${productTitle}" y todos sus colores/variantes del catálogo?`)) {
+      setProducts((prev) => {
+        const updated = prev.filter((p) => p.id !== productId);
+        try {
+          localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
     }
   };
 
@@ -1417,13 +1445,20 @@ export default function AdminDashboardPage() {
                             </div>
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1.5">
                               <button
-                                onClick={() => handleDeleteProduct(p.id)}
-                                title="Dar de baja / Eliminar"
-                                className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors"
+                                onClick={() =>
+                                  handleDeleteVariant(
+                                    p.id,
+                                    v.id,
+                                    `${p.title} - ${v.color} (${v.size})`
+                                  )
+                                }
+                                title="Eliminar solo este color/variante"
+                                className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center gap-1 text-[10px] font-heading font-bold"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Borrar Color</span>
                               </button>
                             </div>
                           </td>
