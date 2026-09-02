@@ -25,6 +25,16 @@ interface HeaderProps {
 export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const handleNavigateSection = (sectionName: 'BICICLETAS' | 'COMPONENTES' | 'ACCESORIOS', anchorId: string) => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: sectionName }));
+      const targetEl = document.getElementById(anchorId) || document.getElementById('catalogo');
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-zinc-200">
       {/* Top Bar de Beneficios y Contacto Oficial */}
@@ -77,34 +87,28 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
         <nav className="hidden lg:flex items-center gap-6 font-heading text-xs font-bold uppercase tracking-wider text-zinc-700">
           <a
             href="/#bicicletas"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'BICICLETAS' }));
-              }
+            onClick={(e) => {
+              handleNavigateSection('BICICLETAS', 'bicicletas');
             }}
-            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950"
+            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950 cursor-pointer"
           >
             Bicicletas
           </a>
           <a
             href="/#componentes"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'COMPONENTES' }));
-              }
+            onClick={(e) => {
+              handleNavigateSection('COMPONENTES', 'componentes');
             }}
-            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950"
+            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950 cursor-pointer"
           >
             Componentes
           </a>
           <a
             href="/#accesorios"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'ACCESORIOS' }));
-              }
+            onClick={(e) => {
+              handleNavigateSection('ACCESORIOS', 'accesorios');
             }}
-            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950"
+            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950 cursor-pointer"
           >
             Accesorios
           </a>
@@ -158,9 +162,7 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
               href="/#bicicletas"
               onClick={() => {
                 setMobileMenuOpen(false);
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'BICICLETAS' }));
-                }
+                handleNavigateSection('BICICLETAS', 'bicicletas');
               }}
               className="py-2 border-b border-zinc-100"
             >
@@ -170,9 +172,7 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
               href="/#componentes"
               onClick={() => {
                 setMobileMenuOpen(false);
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'COMPONENTES' }));
-                }
+                handleNavigateSection('COMPONENTES', 'componentes');
               }}
               className="py-2 border-b border-zinc-100"
             >
@@ -182,9 +182,7 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
               href="/#accesorios"
               onClick={() => {
                 setMobileMenuOpen(false);
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'ACCESORIOS' }));
-                }
+                handleNavigateSection('ACCESORIOS', 'accesorios');
               }}
               className="py-2 border-b border-zinc-100"
             >
