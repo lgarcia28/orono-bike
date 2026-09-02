@@ -74,15 +74,15 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-8 font-heading text-xs font-bold uppercase tracking-wider text-zinc-700">
+        <nav className="hidden lg:flex items-center gap-6 font-heading text-xs font-bold uppercase tracking-wider text-zinc-700">
           <a href="/#bicicletas" className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950">
             Bicicletas
           </a>
-          <a href="/#bicicletas" className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950">
-            MTB & Ruta
+          <a href="/#componentes" className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950">
+            Componentes
           </a>
-          <a href="/#bicicletas" className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950">
-            Gravel & BMX
+          <a href="/#accesorios" className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950">
+            Accesorios
           </a>
           <Link
             href="/taller"
@@ -135,7 +135,21 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 border-b border-zinc-100"
             >
-              Catálogo de Bicicletas
+              Bicicletas
+            </a>
+            <a
+              href="/#componentes"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2 border-b border-zinc-100"
+            >
+              Componentes & Repuestos
+            </a>
+            <a
+              href="/#accesorios"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2 border-b border-zinc-100"
+            >
+              Accesorios & Cascos
             </a>
             <Link
               href="/taller"

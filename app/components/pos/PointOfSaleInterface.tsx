@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ProductsService } from '@/lib/services/products.service';
 import { OrdersService } from '@/lib/services/orders.service';
 import { ArcaAfipService } from '@/lib/services/arca.service';
+import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductVariant, Product } from '@/lib/supabase/types';
 import {
   Search,
@@ -18,6 +19,13 @@ import {
   Printer,
   QrCode,
   User,
+  Zap,
+  Bike,
+  Package,
+  Wrench,
+  Layers,
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 interface CartItem {
@@ -28,6 +36,7 @@ interface CartItem {
 export function PointOfSaleInterface() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<(ProductVariant & { product: Product })[]>([]);
+  const [activeCatalogCategory, setActiveCatalogCategory] = useState<'TODOS' | 'BICICLETAS' | 'COMPONENTES' | 'ACCESORIOS'>('TODOS');
   const [cart, setCart] = useState<CartItem[]>([]);
   
   // Checkout & Facturación States
@@ -45,15 +54,18 @@ export function PointOfSaleInterface() {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Búsqueda predictiva o escaneo de código de barras
+  // Búsqueda predictiva ultrarrápida en memoria y por código de barras
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      if (searchQuery.trim().length >= 2) {
+    const handleSearch = async () => {
+      if (searchQuery.trim().length >= 1) {
         const results = await ProductsService.searchVariantsForPOS(searchQuery);
         setSearchResults(results);
 
-        // Si es escaneo exacto de código de barras (ej. 12-13 dígitos) y hay 1 match exacto
-        if (results.length === 1 && (results[0].barcode === searchQuery.trim() || results[0].sku === searchQuery.trim())) {
+        // Si es escaneo exacto de código de barras (ej. 11-13 dígitos) y hay 1 match exacto
+        if (
+          results.length === 1 &&
+          (results[0].barcode === searchQuery.trim() || results[0].sku?.toLowerCase() === searchQuery.trim().toLowerCase())
+        ) {
           addToCart(results[0]);
           setSearchQuery('');
           setSearchResults([]);
@@ -61,8 +73,9 @@ export function PointOfSaleInterface() {
       } else {
         setSearchResults([]);
       }
-    }, 250);
+    };
 
+    const timer = setTimeout(handleSearch, 100);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -168,334 +181,472 @@ export function PointOfSaleInterface() {
     }
   };
 
+  // Productos de catálogo filtrados por categoría activa para selección rápida
+  const catalogVariants = React.useMemo(() => {
+    const list: (ProductVariant & { product: Product })[] = [];
+    ALL_PRODUCTS_CATALOG.forEach((p) => {
+      if (
+        activeCatalogCategory === 'TODOS' ||
+        (activeCatalogCategory === 'BICICLETAS' && (p.category === 'MTB' || p.category === 'RUTA' || p.category === 'GRAVEL' || p.category === 'BMX' || p.category === 'PASEO' || p.category === 'NIÑOS')) ||
+        (activeCatalogCategory === 'COMPONENTES' && p.category === 'COMPONENTES') ||
+        (activeCatalogCategory === 'ACCESORIOS' && p.category === 'ACCESORIOS')
+      ) {
+        p.variants.forEach((v) => {
+          list.push({
+            ...v,
+            product: {
+              id: p.id,
+              title: p.title,
+              slug: p.slug,
+              brand: p.brand,
+              category: p.category,
+              description: p.description,
+              specs: p.specs,
+              images: p.images,
+              is_active: p.is_active,
+              created_at: p.created_at,
+              updated_at: p.updated_at,
+            },
+          });
+        });
+      }
+    });
+    return list;
+  }, [activeCatalogCategory]);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-100px)] p-6 bg-zinc-100">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-2 sm:p-4 bg-zinc-100 min-h-[750px] rounded-3xl">
       {/* Columna Izquierda: Búsqueda, Escaneo & Grid de Productos (7 Cols) */}
-      <div className="lg:col-span-7 flex flex-col bg-white border border-zinc-200 rounded-lg p-5 shadow-sm">
+      <div className="lg:col-span-7 flex flex-col bg-white border border-zinc-200 rounded-3xl p-5 sm:p-6 shadow-xs">
         {/* Buscador / Scanner Bar */}
         <div className="relative mb-4">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-            <Barcode className="w-5 h-5 mr-2" />
-            <Search className="w-4 h-4" />
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400 gap-2">
+            <Barcode className="w-5 h-5 text-zinc-500" />
+            <Search className="w-4 h-4 text-zinc-400" />
           </div>
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Escanear código de barras o buscar por modelo, marca, SKU..."
+            placeholder="Escanear código de barras o buscar por modelo, marca (Scott, Volta, Shimano), SKU..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-16 pr-4 py-3 bg-zinc-50 border border-zinc-300 rounded-md text-sm font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && searchResults.length > 0) {
+                addToCart(searchResults[0]);
+                setSearchQuery('');
+                setSearchResults([]);
+              }
+            }}
+            className="w-full pl-20 pr-4 py-3.5 bg-zinc-50 border-2 border-zinc-200 hover:border-zinc-400 rounded-2xl text-xs sm:text-sm font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all shadow-inner"
             autoFocus
           />
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSearchResults([]);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-600 font-bold px-2 py-1 bg-zinc-200 rounded-md"
+            >
+              Limpiar
+            </button>
+          )}
         </div>
 
-        {/* Resultados de Búsqueda Flotantes / Lista */}
-        {searchResults.length > 0 && (
-          <div className="mb-4 max-h-64 overflow-y-auto border border-zinc-200 rounded-md divide-y divide-zinc-100 bg-white shadow-md">
-            {searchResults.map((variant) => (
-              <div
-                key={variant.id}
-                onClick={() => {
-                  addToCart(variant);
-                  setSearchQuery('');
-                  setSearchResults([]);
-                }}
-                className="p-3 hover:bg-zinc-50 flex items-center justify-between cursor-pointer transition-colors"
-              >
-                <div>
-                  <h4 className="text-sm font-semibold text-zinc-950">{variant.product?.title}</h4>
-                  <p className="text-xs text-zinc-500 font-mono">
-                    Talle: {variant.size} | Rodado: {variant.wheel_size || '-'} | Color: {variant.color} | SKU: {variant.sku}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-sm font-bold font-mono text-zinc-950">{formatCurrency(variant.price)}</span>
-                  <span className="block text-[11px] text-emerald-600 font-semibold">Stock: {variant.stock}</span>
-                </div>
+        {/* Resultados de Búsqueda Activa */}
+        {searchQuery.trim().length > 0 ? (
+          <div className="flex-1 overflow-y-auto mb-2 space-y-2 max-h-[500px] border border-zinc-200 rounded-2xl p-3 bg-zinc-50/50">
+            <div className="text-[11px] font-heading font-bold uppercase text-zinc-500 mb-2 px-1">
+              Resultados encontrados ({searchResults.length}):
+            </div>
+            {searchResults.length === 0 ? (
+              <div className="text-center py-10 text-zinc-400 text-xs font-medium">
+                No se encontraron artículos con "{searchQuery}". Verifica el código de barras o el nombre.
               </div>
-            ))}
+            ) : (
+              searchResults.map((variant) => (
+                <div
+                  key={`${variant.product_id}-${variant.id}`}
+                  onClick={() => {
+                    addToCart(variant);
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
+                  className="p-3 bg-white hover:bg-zinc-950 hover:text-white border border-zinc-200 rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-xs group"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={variant.product.images[0] || 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=400&q=80'}
+                      alt={variant.product.title}
+                      className="w-11 h-11 object-cover rounded-lg bg-zinc-100 border border-zinc-200 shrink-0"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-zinc-100 group-hover:bg-zinc-800 group-hover:text-zinc-200 text-[10px] font-heading font-black rounded uppercase text-zinc-700">
+                          {variant.product.brand}
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-heading font-bold leading-tight">
+                          {variant.product.title}
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-zinc-500 group-hover:text-zinc-300 font-mono mt-0.5">
+                        Talle: <strong>{variant.size}</strong> • Color: {variant.color} • SKU: {variant.sku}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 pl-2">
+                    <span className="text-sm font-mono font-bold block">{formatCurrency(variant.price)}</span>
+                    <span className="text-[10px] font-bold text-emerald-600 group-hover:text-emerald-300">
+                      Stock: {variant.stock} u.
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          /* Explorador Rápido por Categorías */
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Tabs de Categorías */}
+            <div className="flex gap-2 mb-4 border-b border-zinc-200 pb-2">
+              <button
+                onClick={() => setActiveCatalogCategory('TODOS')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                  activeCatalogCategory === 'TODOS'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setActiveCatalogCategory('BICICLETAS')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                  activeCatalogCategory === 'BICICLETAS'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                <Bike className="w-3.5 h-3.5" /> Bicicletas
+              </button>
+              <button
+                onClick={() => setActiveCatalogCategory('COMPONENTES')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                  activeCatalogCategory === 'COMPONENTES'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                <Wrench className="w-3.5 h-3.5" /> Componentes
+              </button>
+              <button
+                onClick={() => setActiveCatalogCategory('ACCESORIOS')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                  activeCatalogCategory === 'ACCESORIOS'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                <Package className="w-3.5 h-3.5" /> Accesorios
+              </button>
+            </div>
+
+            {/* Grid de Artículos del Catálogo */}
+            <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[460px]">
+              {catalogVariants.map((v) => (
+                <div
+                  key={`${v.product_id}-${v.id}`}
+                  onClick={() => addToCart(v)}
+                  className="p-3 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.01] active:scale-98"
+                >
+                  <div className="flex items-start gap-2.5 mb-2">
+                    <img
+                      src={v.product.images[0] || 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=400&q=80'}
+                      alt={v.product.title}
+                      className="w-10 h-10 object-cover rounded-lg bg-zinc-200 shrink-0"
+                    />
+                    <div>
+                      <span className="text-[9px] font-heading font-black text-zinc-500 uppercase block">
+                        {v.product.brand}
+                      </span>
+                      <h4 className="text-xs font-heading font-bold text-zinc-900 line-clamp-2 leading-tight">
+                        {v.product.title}
+                      </h4>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-zinc-500 font-mono mb-2">
+                    {v.size} • {v.color}
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-zinc-200/60">
+                    <span className="font-mono font-bold text-xs text-zinc-950">
+                      {formatCurrency(v.price)}
+                    </span>
+                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                      +{v.stock}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-
-        {/* Atajos Rápidos / Productos Frecuentes del Taller y Local */}
-        <div className="flex-1 overflow-y-auto">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">Accesos Directos Mostrador</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {[
-              { title: 'Cámara Kenda 29x2.10 Valv. Presta', sku: 'ACC-CAM-29', price: 9500 },
-              { title: 'Sellante Stan’s NoTubes 500ml', sku: 'ACC-TUB-500', price: 28500 },
-              { title: 'Lubricante Cadena Squirt Lube 120ml', sku: 'ACC-LUB-120', price: 18000 },
-              { title: 'Pastillas Freno Shimano B05S Resina', sku: 'ACC-SHI-B05S', price: 14000 },
-              { title: 'Cadena Shimano Deore 12v M6100', sku: 'REP-SHI-CNM6100', price: 42000 },
-              { title: 'Service Mecánico Express Taller', sku: 'SRV-EXP-01', price: 25000 },
-            ].map((quickItem, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  addToCart({
-                    id: `quick-${idx}`,
-                    product_id: `prod-${idx}`,
-                    sku: quickItem.sku,
-                    barcode: null,
-                    size: 'Único',
-                    wheel_size: '29"',
-                    color: 'Estándar',
-                    color_hex: '#000000',
-                    price: quickItem.price,
-                    compare_at_price: null,
-                    stock: 99,
-                    min_stock_alert: 2,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                    product: {
-                      id: `prod-${idx}`,
-                      title: quickItem.title,
-                      slug: 'quick-item',
-                      brand: 'Oroño Bike',
-                      category: 'Accesorios',
-                      description: '',
-                      specs: {},
-                      images: [],
-                      is_active: true,
-                      created_at: new Date().toISOString(),
-                      updated_at: new Date().toISOString(),
-                    },
-                  });
-                }}
-                className="p-3 border border-zinc-200 hover:border-zinc-950 rounded-md text-left bg-zinc-50/50 hover:bg-white transition-all flex flex-col justify-between"
-              >
-                <span className="text-xs font-semibold text-zinc-900 line-clamp-2">{quickItem.title}</span>
-                <span className="text-xs font-bold font-mono text-zinc-950 mt-2">{formatCurrency(quickItem.price)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Columna Derecha: Ticket, Datos Fiscales ARCA & Cobro (5 Cols) */}
-      <div className="lg:col-span-5 flex flex-col bg-white border border-zinc-200 rounded-lg p-5 shadow-sm justify-between">
-        {/* Ticket Header & Items */}
-        <div className="flex-1 overflow-y-auto pr-1">
-          <div className="flex justify-between items-center pb-3 border-b border-zinc-200 mb-3">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-950 flex items-center gap-2">
-              <Receipt className="w-4 h-4" /> Detalle de Venta
-            </h2>
-            <span className="text-xs font-mono text-zinc-500">{cart.length} ítems</span>
+      {/* Columna Derecha: Carrito, Medios de Pago & Facturación (5 Cols) */}
+      <div className="lg:col-span-5 flex flex-col bg-white border border-zinc-200 rounded-3xl p-5 sm:p-6 shadow-xs justify-between">
+        {/* Header del Ticket */}
+        <div>
+          <div className="flex justify-between items-center border-b border-zinc-200 pb-3 mb-4">
+            <div>
+              <h2 className="font-heading font-black text-base text-zinc-950">Ticket de Venta</h2>
+              <span className="text-[11px] text-zinc-500 font-mono">Bv. Nicasio Oroño 1234</span>
+            </div>
+            {cart.length > 0 && (
+              <button
+                onClick={() => setCart([])}
+                className="text-xs text-rose-600 hover:text-rose-700 font-heading font-bold uppercase"
+              >
+                Vaciar
+              </button>
+            )}
           </div>
 
-          {cart.length === 0 ? (
-            <div className="h-48 flex flex-col items-center justify-center text-zinc-400 text-xs">
-              <Barcode className="w-8 h-8 mb-2 opacity-40" />
-              Escanee un producto para iniciar el ticket
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map((item) => (
-                <div key={item.variant.id} className="flex justify-between items-start text-xs border-b border-zinc-100 pb-2">
+          {/* Items en Carrito */}
+          <div className="max-h-[220px] overflow-y-auto space-y-2 mb-4 pr-1">
+            {cart.length === 0 ? (
+              <div className="text-center py-10 text-zinc-400 text-xs">
+                No hay productos en el ticket actual.<br />
+                Escanea un código de barras o haz clic en un producto.
+              </div>
+            ) : (
+              cart.map((item) => (
+                <div
+                  key={item.variant.id}
+                  className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl flex items-center justify-between text-xs"
+                >
                   <div className="flex-1 pr-2">
-                    <h5 className="font-semibold text-zinc-900">{item.variant.product?.title}</h5>
-                    <p className="text-[11px] text-zinc-500 font-mono">
-                      {item.variant.size} - {item.variant.color} ({formatCurrency(item.variant.price)})
-                    </p>
+                    <strong className="text-zinc-900 block font-heading">{item.variant.product.title}</strong>
+                    <span className="text-[10px] text-zinc-500 font-mono">
+                      {item.variant.size} • {item.variant.color} • {formatCurrency(item.variant.price)} c/u
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center border border-zinc-200 rounded">
+                    <div className="flex items-center gap-1 bg-white border border-zinc-300 rounded-lg p-0.5">
                       <button
                         onClick={() => updateQuantity(item.variant.id, -1)}
-                        className="px-1.5 py-0.5 text-zinc-600 hover:bg-zinc-100"
+                        className="w-5 h-5 flex items-center justify-center font-bold text-zinc-700 hover:bg-zinc-100 rounded"
                       >
-                        <Minus className="w-3 h-3" />
+                        -
                       </button>
-                      <span className="px-2 font-mono font-bold">{item.quantity}</span>
+                      <span className="w-6 text-center font-mono font-bold text-xs">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.variant.id, 1)}
-                        className="px-1.5 py-0.5 text-zinc-600 hover:bg-zinc-100"
+                        className="w-5 h-5 flex items-center justify-center font-bold text-zinc-700 hover:bg-zinc-100 rounded"
                       >
-                        <Plus className="w-3 h-3" />
+                        +
                       </button>
                     </div>
-                    <span className="font-mono font-bold text-zinc-950 w-20 text-right">
+                    <span className="font-mono font-bold w-20 text-right text-zinc-950">
                       {formatCurrency(item.variant.price * item.quantity)}
                     </span>
                     <button
                       onClick={() => removeFromCart(item.variant.id)}
-                      className="text-zinc-400 hover:text-rose-600 p-1"
+                      className="p-1 text-zinc-400 hover:text-rose-600"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
 
-        {/* Sección de Datos Fiscales ARCA & Métodos de Pago */}
-        <div className="border-t border-zinc-200 pt-4 mt-4 space-y-3">
-          {/* Tipo de Comprobante Fiscal */}
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { id: 'FACTURA_B', label: 'Factura B' },
-              { id: 'FACTURA_A', label: 'Factura A' },
-              { id: 'TICKET_LOCAL', label: 'Ticket Local' },
-            ].map((cbte) => (
+        {/* Sección de Pago, Facturación y Cierre */}
+        <div className="border-t border-zinc-200 pt-4 space-y-3.5">
+          {/* Tipo de Comprobante */}
+          <div>
+            <label className="block text-[10px] font-heading font-bold uppercase text-zinc-500 mb-1">
+              Tipo de Emisión
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
               <button
-                key={cbte.id}
                 type="button"
-                onClick={() => {
-                  setBillingType(cbte.id as any);
-                  if (cbte.id === 'FACTURA_A') {
-                    setDocType('CUIT');
-                  }
-                }}
-                className={`py-1.5 text-xs font-semibold rounded border transition-all ${
-                  billingType === cbte.id
-                    ? 'bg-zinc-950 text-white border-zinc-950'
-                    : 'bg-zinc-50 text-zinc-700 border-zinc-300 hover:border-zinc-900'
+                onClick={() => setBillingType('FACTURA_B')}
+                className={`py-2 rounded-xl text-[11px] font-heading font-bold uppercase transition-all ${
+                  billingType === 'FACTURA_B'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                 }`}
               >
-                {cbte.label}
+                Factura B
               </button>
-            ))}
-          </div>
-
-          {/* Formulario Cliente / CUIT si es Factura A */}
-          {billingType === 'FACTURA_A' && (
-            <div className="grid grid-cols-2 gap-2 bg-zinc-50 p-2.5 rounded border border-zinc-200 text-xs">
-              <div>
-                <label className="text-[11px] font-semibold text-zinc-700 block mb-0.5">CUIT Cliente *</label>
-                <input
-                  type="text"
-                  placeholder="30-xxxxxxxx-x"
-                  value={docNumber === '0' ? '' : docNumber}
-                  onChange={(e) => setDocNumber(e.target.value)}
-                  className="w-full border border-zinc-300 rounded px-2 py-1 bg-white focus:outline-none focus:border-zinc-950 font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-zinc-700 block mb-0.5">Razón Social</label>
-                <input
-                  type="text"
-                  placeholder="Empresa S.A."
-                  value={customerName === 'Consumidor Final' ? '' : customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full border border-zinc-300 rounded px-2 py-1 bg-white focus:outline-none focus:border-zinc-950"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => setBillingType('FACTURA_A')}
+                className={`py-2 rounded-xl text-[11px] font-heading font-bold uppercase transition-all ${
+                  billingType === 'FACTURA_A'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                Factura A
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingType('TICKET_LOCAL')}
+                className={`py-2 rounded-xl text-[11px] font-heading font-bold uppercase transition-all ${
+                  billingType === 'TICKET_LOCAL'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                Remito / Local
+              </button>
             </div>
-          )}
-
-          {/* Métodos de Pago */}
-          <div className="grid grid-cols-4 gap-1.5">
-            {[
-              { id: 'cash', label: 'Efectivo', icon: Banknote },
-              { id: 'pos_debit', label: 'Débito', icon: CreditCard },
-              { id: 'pos_credit', label: 'Crédito', icon: CreditCard },
-              { id: 'transfer', label: 'Transf.', icon: User },
-            ].map((pm) => {
-              const Icon = pm.icon;
-              return (
-                <button
-                  key={pm.id}
-                  type="button"
-                  onClick={() => setPaymentMethod(pm.id as any)}
-                  className={`py-2 px-1 text-[11px] font-medium rounded border flex flex-col items-center gap-1 transition-all ${
-                    paymentMethod === pm.id
-                      ? 'bg-zinc-900 text-white border-zinc-900'
-                      : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {pm.label}
-                </button>
-              );
-            })}
           </div>
 
-          {/* Totales & Botón de Cobro Inmediato */}
-          <div className="bg-zinc-900 text-white p-4 rounded-md mt-2">
-            <div className="flex justify-between text-xs text-zinc-400 mb-1">
+          {/* Método de Pago */}
+          <div>
+            <label className="block text-[10px] font-heading font-bold uppercase text-zinc-500 mb-1">
+              Medio de Cobro
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentMethod('cash');
+                  setDiscountPercent(0);
+                }}
+                className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
+                  paymentMethod === 'cash'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                Efectivo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentMethod('transfer');
+                  setDiscountPercent(10);
+                }}
+                className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
+                  paymentMethod === 'transfer'
+                    ? 'bg-emerald-600 text-white font-black'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                Transf (-10%)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentMethod('pos_debit');
+                  setDiscountPercent(0);
+                }}
+                className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
+                  paymentMethod === 'pos_debit'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                Débito
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentMethod('pos_credit');
+                  setDiscountPercent(0);
+                }}
+                className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
+                  paymentMethod === 'pos_credit'
+                    ? 'bg-zinc-950 text-white'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                3/6 Cuotas
+              </button>
+            </div>
+          </div>
+
+          {/* Totales y Botón Cobrar */}
+          <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-200 space-y-1 text-xs">
+            <div className="flex justify-between text-zinc-500 font-mono">
               <span>Subtotal:</span>
-              <span className="font-mono">{formatCurrency(subtotal)}</span>
+              <span>{formatCurrency(subtotal)}</span>
             </div>
             {discountPercent > 0 && (
-              <div className="flex justify-between text-xs text-amber-400 mb-1">
+              <div className="flex justify-between text-emerald-600 font-mono font-bold">
                 <span>Descuento ({discountPercent}%):</span>
-                <span className="font-mono">-{formatCurrency(discountAmount)}</span>
+                <span>-{formatCurrency(discountAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-lg font-bold pt-2 border-t border-zinc-800">
+            <div className="flex justify-between text-zinc-950 font-mono font-black text-lg pt-1 border-t border-zinc-200">
               <span>TOTAL:</span>
-              <span className="font-mono text-xl">{formatCurrency(total)}</span>
+              <span>{formatCurrency(total)}</span>
             </div>
-
-            <button
-              type="button"
-              disabled={cart.length === 0 || isProcessing}
-              onClick={handleCheckoutAndInvoice}
-              className="w-full mt-3 bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold py-3 rounded text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {isProcessing ? (
-                'Emitiendo Comprobante ARCA...'
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" /> Cobrar y Emitir Factura
-                </>
-              )}
-            </button>
           </div>
+
+          <button
+            type="button"
+            disabled={cart.length === 0 || isProcessing}
+            onClick={handleCheckoutAndInvoice}
+            className="w-full bg-zinc-950 hover:bg-zinc-800 disabled:opacity-30 text-white py-4 rounded-2xl font-heading text-xs font-black uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-98"
+          >
+            {isProcessing ? 'Emitiendo comprobante...' : (
+              <>
+                <CheckCircle className="w-4 h-4 text-emerald-400" /> Cobrar {formatCurrency(total)}
+              </>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Modal / Pop-up de Comprobante Emitido */}
+      {/* Modal de Comprobante Emitido */}
       {issuedInvoice && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-zinc-300">
-            <div className="text-center mb-4">
-              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                <CheckCircle className="w-8 h-8" />
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn text-center">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle className="w-10 h-10" />
+            </div>
+            <h3 className="text-xl font-heading font-black text-zinc-950 mb-1">
+              ¡Venta Registrada Exitosamente!
+            </h3>
+            <p className="text-xs text-zinc-500 mb-4 font-mono">
+              Comprobante #{issuedInvoice.order?.order_number || '0001-0004522'}
+            </p>
+
+            <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-200 text-left text-xs space-y-1.5 mb-6">
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Monto Cobrado:</span>
+                <strong className="font-mono text-zinc-950">{formatCurrency(issuedInvoice.total)}</strong>
               </div>
-              <h3 className="text-lg font-bold text-zinc-950">¡Venta Registrada Exitosamente!</h3>
-              <p className="text-xs text-zinc-500">Orden: {issuedInvoice.order.order_number}</p>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Medio de Pago:</span>
+                <span className="font-bold text-zinc-800 uppercase">{paymentMethod}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Tipo Comprobante:</span>
+                <span className="font-bold text-zinc-800">{billingType}</span>
+              </div>
             </div>
 
-            {issuedInvoice.arca?.cae && (
-              <div className="bg-zinc-50 border border-zinc-200 rounded p-3 text-xs space-y-1.5 mb-4">
-                <div className="flex justify-between font-mono">
-                  <span className="text-zinc-500">Comprobante:</span>
-                  <span className="font-bold text-zinc-900">
-                    {billingType} N° 0001-{String(issuedInvoice.arca.cbteNro).padStart(8, '0')}
-                  </span>
-                </div>
-                <div className="flex justify-between font-mono">
-                  <span className="text-zinc-500">CAE:</span>
-                  <span className="font-bold text-zinc-900">{issuedInvoice.arca.cae}</span>
-                </div>
-                <div className="flex justify-between font-mono">
-                  <span className="text-zinc-500">Vto. CAE:</span>
-                  <span className="text-zinc-900">{issuedInvoice.arca.caeVto}</span>
-                </div>
-                <div className="pt-2 flex justify-center">
-                  <QrCode className="w-20 h-20 text-zinc-800" />
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
-                type="button"
-                onClick={() => window.print()}
-                className="flex-1 bg-zinc-950 text-white py-2.5 rounded text-xs font-semibold flex items-center justify-center gap-2 hover:bg-zinc-800"
+                onClick={() => setIssuedInvoice(null)}
+                className="flex-1 py-3 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50"
               >
-                <Printer className="w-4 h-4" /> Imprimir Ticket
+                Cerrar
               </button>
               <button
-                type="button"
-                onClick={() => setIssuedInvoice(null)}
-                className="px-4 border border-zinc-300 rounded text-xs font-medium text-zinc-700 hover:border-zinc-950"
+                onClick={() => {
+                  window.print();
+                }}
+                className="flex-1 bg-zinc-950 text-white py-3 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 flex items-center justify-center gap-1.5 shadow-md"
               >
-                Nueva Venta
+                <Printer className="w-4 h-4" /> Imprimir Ticket
               </button>
             </div>
           </div>
