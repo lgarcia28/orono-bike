@@ -75,13 +75,37 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-6 font-heading text-xs font-bold uppercase tracking-wider text-zinc-700">
-          <a href="/#bicicletas" className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950">
+          <a
+            href="/#bicicletas"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'BICICLETAS' }));
+              }
+            }}
+            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950"
+          >
             Bicicletas
           </a>
-          <a href="/#componentes" className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950">
+          <a
+            href="/#componentes"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'COMPONENTES' }));
+              }
+            }}
+            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950"
+          >
             Componentes
           </a>
-          <a href="/#accesorios" className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950">
+          <a
+            href="/#accesorios"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'ACCESORIOS' }));
+              }
+            }}
+            className="hover:text-zinc-950 transition-colors py-2 border-b-2 border-transparent hover:border-zinc-950"
+          >
             Accesorios
           </a>
           <Link
@@ -132,21 +156,36 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
           <nav className="flex flex-col space-y-3 font-heading font-bold text-sm text-zinc-800">
             <a
               href="/#bicicletas"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'BICICLETAS' }));
+                }
+              }}
               className="py-2 border-b border-zinc-100"
             >
               Bicicletas
             </a>
             <a
               href="/#componentes"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'COMPONENTES' }));
+                }
+              }}
               className="py-2 border-b border-zinc-100"
             >
               Componentes & Repuestos
             </a>
             <a
               href="/#accesorios"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('changeCatalogSection', { detail: 'ACCESORIOS' }));
+                }
+              }}
               className="py-2 border-b border-zinc-100"
             >
               Accesorios & Cascos

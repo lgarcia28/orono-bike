@@ -12,10 +12,10 @@ interface CatalogSectionProps {
   onAddToCart: (variant: ProductVariant, quantity: number) => void;
 }
 
-type MainSectionType = 'TODOS' | 'BICICLETAS' | 'COMPONENTES' | 'ACCESORIOS';
+export type MainSectionType = 'TODOS' | 'BICICLETAS' | 'COMPONENTES' | 'ACCESORIOS';
 
 const BIKE_SUBCATEGORIES = ['Todas', 'MTB', 'RUTA', 'GRAVEL', 'BMX', 'PASEO', 'NIÑOS'];
-const BRANDS = ['Todas', 'SCOTT', 'VOLTA', 'RALEIGH', 'MOOVE', 'ZION', 'SARS', 'SHIMANO', 'MAXXIS', 'FOX', 'GARMIN', 'KRYPTONITE'];
+const BRANDS = ['Todas', 'SCOTT', 'VOLTA', 'RALEIGH', 'MOOVE', 'ZION', 'SARS', 'SHIMANO', 'MAXXIS', 'ROCKSHOX', 'FOX', 'GARMIN', 'KRYPTONITE'];
 
 export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }: CatalogSectionProps) {
   const [mainSection, setMainSection] = useState<MainSectionType>('TODOS');
@@ -24,6 +24,35 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeProduct, setActiveProduct] = useState<ProductWithVariants | null>(null);
   const [customBikes, setCustomBikes] = useState<ProductWithVariants[]>([]);
+
+  // Sincronizar con el hash de la URL (#bicicletas, #componentes, #accesorios)
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.includes('componente')) {
+        setMainSection('COMPONENTES');
+      } else if (hash.includes('accesorio')) {
+        setMainSection('ACCESORIOS');
+      } else if (hash.includes('bici')) {
+        setMainSection('BICICLETAS');
+      }
+    };
+
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+
+    const handleCustomEvent = (e: any) => {
+      if (e.detail) {
+        setMainSection(e.detail);
+      }
+    };
+    window.addEventListener('changeCatalogSection', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHash);
+      window.removeEventListener('changeCatalogSection', handleCustomEvent);
+    };
+  }, []);
 
   // Cargar productos personalizados guardados por el dueño
   useEffect(() => {
@@ -41,35 +70,36 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
     return [...customBikes, ...products];
   }, [customBikes, products]);
 
-  // Filtrado reactivo por Sección Principal, Subcategoría, Marca y Buscador
+  // Filtrado reactivo estricto por Sección Principal
   const filteredProducts = useMemo(() => {
     return allProducts.filter((p) => {
-      // 1. Filtro por sección principal
-      const isBike = p.category === 'MTB' || p.category === 'RUTA' || p.category === 'GRAVEL' || p.category === 'BMX' || p.category === 'PASEO' || p.category === 'NIÑOS';
-      const isComponent = p.category === 'COMPONENTES';
-      const isAccessory = p.category === 'ACCESORIOS';
+      const cat = (p.category || '').toUpperCase();
+      const isComponent = cat === 'COMPONENTES';
+      const isAccessory = cat === 'ACCESORIOS';
+      const isBike = !isComponent && !isAccessory;
 
+      // 1. Filtro estricto por sección
       if (mainSection === 'BICICLETAS' && !isBike) return false;
       if (mainSection === 'COMPONENTES' && !isComponent) return false;
       if (mainSection === 'ACCESORIOS' && !isAccessory) return false;
 
-      // 2. Filtro por subcategoría de bici (si está en bicicletas o todos)
+      // 2. Filtro por subcategoría de bicicleta (solo cuando aplica)
       if (isBike && selectedBikeCategory !== 'Todas') {
-        if (p.category.toUpperCase() !== selectedBikeCategory.toUpperCase()) return false;
+        if (cat !== selectedBikeCategory.toUpperCase()) return false;
       }
 
       // 3. Filtro por marca
       const matchBrand =
-        selectedBrand === 'Todas' || p.brand.toUpperCase() === selectedBrand.toUpperCase();
+        selectedBrand === 'Todas' || (p.brand || '').toUpperCase() === selectedBrand.toUpperCase();
       if (!matchBrand) return false;
 
       // 4. Buscador predictivo
       const q = searchQuery.toLowerCase().trim();
       if (q) {
-        const matchTitle = p.title.toLowerCase().includes(q);
-        const matchB = p.brand.toLowerCase().includes(q);
-        const matchCat = p.category.toLowerCase().includes(q);
-        const matchSku = p.variants.some((v) => v.sku?.toLowerCase().includes(q));
+        const matchTitle = (p.title || '').toLowerCase().includes(q);
+        const matchB = (p.brand || '').toLowerCase().includes(q);
+        const matchCat = (p.category || '').toLowerCase().includes(q);
+        const matchSku = p.variants?.some((v) => (v.sku || '').toLowerCase().includes(q));
         if (!matchTitle && !matchB && !matchCat && !matchSku) return false;
       }
 
@@ -90,19 +120,29 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
   }
 
   return (
-    <section id="bicicletas" className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+    <section id="bicicletas" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 scroll-mt-24">
       {/* Section Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-200 pb-8 mb-8">
         <div>
           <div className="inline-flex items-center gap-2 text-xs font-heading font-extrabold text-zinc-400 uppercase tracking-widest mb-2">
             <Sparkles className="w-4 h-4 text-emerald-500" />
-            <span>Catálogo Oroño Bike • Temporada 2026</span>
+            <span>Catálogo Oficial Oroño Bike</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-black text-zinc-950 tracking-tight">
-            Bicicletas, Componentes & Accesorios
+            {mainSection === 'BICICLETAS'
+              ? 'Bicicletas de Competición & Trail'
+              : mainSection === 'COMPONENTES'
+              ? 'Componentes & Repuestos Oficiales'
+              : mainSection === 'ACCESORIOS'
+              ? 'Accesorios, Cascos & Equipamiento'
+              : 'Catálogo de Bicicletas, Componentes & Accesorios'}
           </h2>
           <p className="text-sm text-zinc-600 mt-2 max-w-xl leading-relaxed">
-            Explora las mejores bicicletas, transmisiones, cascos y equipamiento con garantía oficial, stock en tiempo real y asesoramiento en Rosario.
+            {mainSection === 'COMPONENTES'
+              ? 'Transmisiones Shimano, frenos hidráulicos, cubiertas Maxxis y horquillas de alta gama con instalación en taller.'
+              : mainSection === 'ACCESORIOS'
+              ? 'Cascos con protección MIPS, ciclocomputadores GPS Garmin, luces de alta potencia y seguridad.'
+              : 'Explora las mejores bicicletas, componentes y accesorios con garantía oficial y stock en tiempo real en Rosario.'}
           </p>
         </div>
 
@@ -125,6 +165,7 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
           onClick={() => {
             setMainSection('TODOS');
             setSelectedBikeCategory('Todas');
+            window.location.hash = 'catalogo';
           }}
           className={`px-6 py-3 rounded-2xl text-xs font-heading font-black uppercase tracking-wider transition-all shadow-xs ${
             mainSection === 'TODOS'
@@ -132,10 +173,14 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
               : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950'
           }`}
         >
-          Todo el Catálogo
+          Todo el Catálogo ({allProducts.length})
         </button>
         <button
-          onClick={() => setMainSection('BICICLETAS')}
+          onClick={() => {
+            setMainSection('BICICLETAS');
+            setSelectedBikeCategory('Todas');
+            window.location.hash = 'bicicletas';
+          }}
           className={`px-6 py-3 rounded-2xl text-xs font-heading font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-xs ${
             mainSection === 'BICICLETAS'
               ? 'bg-zinc-950 text-white shadow-md'
@@ -145,10 +190,10 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
           <Bike className="w-4 h-4" /> Bicicletas
         </button>
         <button
-          id="componentes"
           onClick={() => {
             setMainSection('COMPONENTES');
             setSelectedBikeCategory('Todas');
+            window.location.hash = 'componentes';
           }}
           className={`px-6 py-3 rounded-2xl text-xs font-heading font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-xs ${
             mainSection === 'COMPONENTES'
@@ -159,10 +204,10 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
           <Wrench className="w-4 h-4" /> Componentes
         </button>
         <button
-          id="accesorios"
           onClick={() => {
             setMainSection('ACCESORIOS');
             setSelectedBikeCategory('Todas');
+            window.location.hash = 'accesorios';
           }}
           className={`px-6 py-3 rounded-2xl text-xs font-heading font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-xs ${
             mainSection === 'ACCESORIOS'
@@ -174,7 +219,7 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
         </button>
       </div>
 
-      {/* Subcategorías de Bicicletas (Si aplica) */}
+      {/* Subcategorías de Bicicletas (Solo cuando estamos en Bicicletas o Todos) */}
       {(mainSection === 'BICICLETAS' || mainSection === 'TODOS') && (
         <div className="space-y-3 mb-6 bg-zinc-50/70 p-4 rounded-2xl border border-zinc-200/80">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -224,7 +269,7 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
         })}
       </div>
 
-      {/* Products Grid */}
+      {/* Products Grid (Cuadrícula de a 3 Productos) */}
       {filteredProducts.length === 0 ? (
         <div className="text-center py-20 bg-zinc-50 rounded-3xl border border-zinc-200 text-zinc-500">
           <Bike className="w-12 h-12 mx-auto mb-3 opacity-30 text-zinc-400" />

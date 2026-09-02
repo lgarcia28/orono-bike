@@ -1,7 +1,7 @@
 import { ProductWithVariants } from '@/lib/supabase/types';
 
 // ==========================================
-// 1. CATÁLOGO DE BICICLETAS (6 MODELOS PRO)
+// 1. CATÁLOGO DE BICICLETAS (6 MODELOS)
 // ==========================================
 export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
   {
@@ -359,7 +359,7 @@ export const ORO_BIKES_CATALOG: ProductWithVariants[] = [
 ];
 
 // ==========================================
-// 2. CATÁLOGO DE COMPONENTES (6 EJEMPLOS PRO)
+// 2. CATÁLOGO DE COMPONENTES CON FOTOS REALES EXACTAS
 // ==========================================
 export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
   {
@@ -375,7 +375,7 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
       peso: '1.75 kg (conjunto)',
     },
     images: [
-      'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -427,7 +427,7 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
       pistones: '2 Pistones cerámicos de alta disipación',
     },
     images: [
-      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -463,7 +463,7 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
       tecnologia: '3C MaxxSpeed / EXO Protection / Tubeless Ready',
     },
     images: [
-      'https://images.unsplash.com/photo-1576435728678-68d0fbf94e91?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1559348349-86f1f65817fe?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -516,7 +516,7 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
       peso: '1.480 kg',
     },
     images: [
-      'https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -568,7 +568,7 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
       calas: 'Incluye calas Shimano SM-SH51',
     },
     images: [
-      'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -605,7 +605,7 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
       peso: '179 gr',
     },
     images: [
-      'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1502744688674-c619d1586c9e?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -632,7 +632,7 @@ export const ORO_COMPONENTS_CATALOG: ProductWithVariants[] = [
 ];
 
 // ==========================================
-// 3. CATÁLOGO DE ACCESORIOS (6 EJEMPLOS PRO)
+// 3. CATÁLOGO DE ACCESORIOS CON FOTOS REALES EXACTAS
 // ==========================================
 export const ORO_ACCESSORIES_CATALOG: ProductWithVariants[] = [
   {
@@ -807,7 +807,7 @@ export const ORO_ACCESSORIES_CATALOG: ProductWithVariants[] = [
       valvulas: 'Presta, Schrader y Dunlop automática',
     },
     images: [
-      'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1509099836639-18ba1795216d?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
@@ -844,7 +844,7 @@ export const ORO_ACCESSORIES_CATALOG: ProductWithVariants[] = [
       peso: '380 gr',
     },
     images: [
-      'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&w=1200&q=80',
     ],
     is_active: true,
     created_at: new Date().toISOString(),
