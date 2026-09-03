@@ -36,6 +36,8 @@ export interface Database {
           wheel_size: string | null;
           color: string;
           color_hex: string;
+          cost?: number | null;
+          profit_margin_percent?: number | null;
           price: number;
           compare_at_price: number | null;
           stock: number;

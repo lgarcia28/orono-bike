@@ -4,44 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { WorkshopService } from '@/lib/services/workshop.service';
 import { Wrench, Calendar, Clock, Bike, CheckCircle2, ChevronRight, ChevronLeft, MessageCircle } from 'lucide-react';
 
-const WORKSHOP_SERVICES = [
-  {
-    id: 'service-general',
-    title: 'Service General & Puesta a Punto',
-    description: 'Ajuste integral de cambios, frenos, centrado de ruedas, lubricación de transmisión y torque de seguridad.',
-    duration: '48 hs',
-    price: '$ 45.000',
-  },
-  {
-    id: 'calibracion-transmision',
-    title: 'Calibración de Transmisión',
-    description: 'Alineación de pata de cambio con calibre, regulación de topes H/L, tensión de cable o emparejamiento AXS/Di2.',
-    duration: '24 hs',
-    price: '$ 22.000',
-  },
-  {
-    id: 'purga-frenos',
-    title: 'Purga de Frenos Hidráulicos',
-    description: 'Vaciado, purga con fluido mineral / DOT y reemplazo de pastillas para máxima potencia de frenado.',
-    duration: '24 hs',
-    price: '$ 28.000',
-  },
-  {
-    id: 'mantenimiento-suspension',
-    title: 'Mantenimiento de Suspensión (Horquilla / Shock)',
-    description: 'Cambio de retenes SKF/Fox, aceite hidráulico, lubricación de botellas y presurización.',
-    duration: '72 hs',
-    price: '$ 65.000',
-  },
-  {
-    id: 'tubelizado',
-    title: 'Tubelizado & Carga de Sellante',
-    description: 'Instalación de cinta tubeless de alta presión, válvulas y sellante Stan’s NoTubes.',
-    duration: '24 hs',
-    price: '$ 20.000',
-  },
-];
-
 const TIME_SLOTS = [
   '09:00 - 11:00',
   '11:00 - 13:00',
@@ -50,8 +12,21 @@ const TIME_SLOTS = [
 ];
 
 export function WorkshopBookingWizard() {
+  const [servicesList, setServicesList] = useState(() => WorkshopService.getServices());
   const [step, setStep] = useState<number>(1);
-  const [selectedService, setSelectedService] = useState<string>(WORKSHOP_SERVICES[0].title);
+  const [selectedService, setSelectedService] = useState<string>(() => {
+    const list = WorkshopService.getServices();
+    return list[0]?.title || 'Service General & Puesta a Punto';
+  });
+
+  useEffect(() => {
+    setServicesList(WorkshopService.getServices());
+    const handleUpdate = () => {
+      setServicesList(WorkshopService.getServices());
+    };
+    window.addEventListener('workshopServicesUpdated', handleUpdate);
+    return () => window.removeEventListener('workshopServicesUpdated', handleUpdate);
+  }, []);
   
   // Próximas fechas hábiles disponibles (próximos 7 días hábiles)
   const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -183,28 +158,34 @@ export function WorkshopBookingWizard() {
           </p>
 
           <div className="grid grid-cols-1 gap-3 mb-8">
-            {WORKSHOP_SERVICES.map((srv) => (
+            {servicesList.map((srv) => (
               <div
                 key={srv.id}
                 onClick={() => setSelectedService(srv.title)}
-                className={`p-4 rounded-md border cursor-pointer transition-all flex justify-between items-start ${
+                className={`p-4 rounded-xl border cursor-pointer transition-all flex justify-between items-start ${
                   selectedService === srv.title
-                    ? 'border-zinc-950 bg-zinc-50 ring-1 ring-zinc-950'
+                    ? 'border-zinc-950 bg-zinc-50 ring-1 ring-zinc-950 shadow-xs'
                     : 'border-zinc-200 hover:border-zinc-400 bg-white'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <Wrench className="w-5 h-5 text-zinc-800 mt-0.5 shrink-0" />
+                  <div className="p-2 bg-zinc-100 rounded-lg text-zinc-900 shrink-0 mt-0.5">
+                    <Wrench className="w-4 h-4" />
+                  </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-zinc-950">{srv.title}</h3>
-                    <p className="text-xs text-zinc-600 mt-0.5">{srv.description}</p>
-                    <span className="inline-block mt-2 text-[11px] font-mono text-zinc-500 bg-zinc-200/60 px-2 py-0.5 rounded">
+                    <h3 className="text-sm font-bold text-zinc-950">{srv.title}</h3>
+                    <p className="text-xs text-zinc-600 mt-0.5 leading-relaxed">{srv.description}</p>
+                    <span className="inline-block mt-2 text-[11px] font-mono font-medium text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-md">
                       Demora aprox: {srv.duration}
                     </span>
                   </div>
                 </div>
                 <span className="text-sm font-bold font-mono text-zinc-950 whitespace-nowrap ml-4">
-                  {srv.price}
+                  {new Intl.NumberFormat('es-AR', {
+                    style: 'currency',
+                    currency: 'ARS',
+                    maximumFractionDigits: 0,
+                  }).format(srv.price)}
                 </span>
               </div>
             ))}

@@ -3,8 +3,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/app/components/layout/Header';
-import { ORO_BIKES_CATALOG } from '@/lib/data/bikes';
+import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductWithVariants, ProductVariant } from '@/lib/supabase/types';
+import { WorkshopService, WorkshopServiceItem } from '@/lib/services/workshop.service';
 import { PointOfSaleInterface } from '@/app/components/pos/PointOfSaleInterface';
 import {
   LayoutDashboard,
@@ -40,6 +41,10 @@ import {
   MinusCircle,
   PlusCircle,
   Download,
+  Calculator,
+  Save,
+  Tag,
+  ShieldCheck,
 } from 'lucide-react';
 
 type AdminTab = 'ventas' | 'pos' | 'inventario' | 'facturacion' | 'taller' | 'caja';
@@ -74,6 +79,23 @@ export default function AdminDashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [bulkPercent, setBulkPercent] = useState<number>(5);
   const [showBulkModal, setShowBulkModal] = useState(false);
+
+  // Estado de Gestión de Servicios de Taller (CRUD)
+  const [workshopSubTab, setWorkshopSubTab] = useState<'turnos' | 'servicios'>('turnos');
+  const [workshopServices, setWorkshopServices] = useState<WorkshopServiceItem[]>([]);
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [serviceFormData, setServiceFormData] = useState<{
+    title: string;
+    description: string;
+    duration: string;
+    price: number;
+  }>({
+    title: '',
+    description: '',
+    duration: '24 hs',
+    price: 0,
+  });
 
   // Estado de Facturación Rápida
   const [invoiceType, setInvoiceType] = useState<'B' | 'A'>('B');
@@ -119,45 +141,45 @@ export default function AdminDashboardPage() {
       client: 'Martín Rossi',
       phone: '5493415551234',
       bike: 'Scott Spark RC (2024)',
-      serviceType: 'Service Pro Integral + Purga Shimano',
+      serviceType: 'Service General & Puesta a Punto',
       status: 'En Taller',
       date: '2026-09-02',
-      price: 85000,
+      price: 45000,
     },
     {
       id: 'SER-102',
       client: 'Camila Benítez',
       phone: '5493415555678',
       bike: 'Volta Radix 29',
-      serviceType: 'Calibración Transmisión + Tubelizado',
+      serviceType: 'Calibración de Transmisión',
       status: 'Listo para Retiro',
       date: '2026-09-01',
-      price: 42000,
+      price: 22000,
     },
     {
       id: 'SER-103',
       client: 'Federico Gómez',
       phone: '5493415559012',
       bike: 'Sars Pro Race',
-      serviceType: 'Armado desde Caja & Ajuste de Frenos',
+      serviceType: 'Purga de Frenos Hidráulicos',
       status: 'Pendiente',
       date: '2026-09-03',
-      price: 60000,
+      price: 28000,
     },
     {
       id: 'SER-104',
       client: 'Ignacio Vega',
       phone: '5493415553456',
       bike: 'Raleigh Mojave 9.5',
-      serviceType: 'Cambio de Cadena y Pastillas',
+      serviceType: 'Tubelizado & Carga de Sellante',
       status: 'Entregado',
       date: '2026-08-31',
-      price: 38000,
+      price: 20000,
     },
   ]);
 
   // Estado de Cierre de Caja (Ingresos y Egresos)
-  const [openingBalance, setOpeningBalance] = useState<number>(150000); // Fondo de cambio inicial
+  const [openingBalance, setOpeningBalance] = useState<number>(150000);
   const [cashMovements, setCashMovements] = useState<CashMovement[]>([
     {
       id: 'MOV-01',
@@ -224,7 +246,6 @@ export default function AdminDashboardPage() {
     },
   ]);
 
-  // Modal para agregar nuevo movimiento manual de caja (Ingreso o Egreso)
   const [showMovementModal, setShowMovementModal] = useState(false);
   const [movementForm, setMovementForm] = useState<{
     type: 'ingreso' | 'egreso';
@@ -240,22 +261,24 @@ export default function AdminDashboardPage() {
     amount: 0,
   });
 
-  // Cargar inventario inicial
+  // Cargar inventario inicial y servicios de taller
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('orono_custom_bikes') || '[]');
       if (Array.isArray(stored) && stored.length > 0) {
-        setProducts([...stored, ...ORO_BIKES_CATALOG]);
+        setProducts([...stored, ...ALL_PRODUCTS_CATALOG]);
       } else {
-        setProducts(ORO_BIKES_CATALOG);
+        setProducts(ALL_PRODUCTS_CATALOG);
       }
     } catch (e) {
-      setProducts(ORO_BIKES_CATALOG);
+      setProducts(ALL_PRODUCTS_CATALOG);
     }
+
+    setWorkshopServices(WorkshopService.getServices());
   }, []);
 
-  // Actualizar fechas según el preset
-  const handleSelectDatePreset = (preset: DatePreset) => {
+  // Recalcular preset de fechas
+  const handleSelectPreset = (preset: DatePreset) => {
     setDatePreset(preset);
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
@@ -266,13 +289,13 @@ export default function AdminDashboardPage() {
     } else if (preset === 'ayer') {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-      setStartDate(yesterdayStr);
-      setEndDate(yesterdayStr);
+      const yStr = yesterday.toISOString().split('T')[0];
+      setStartDate(yStr);
+      setEndDate(yStr);
     } else if (preset === 'semana') {
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - 7);
-      setStartDate(startOfWeek.toISOString().split('T')[0]);
+      const pastWeek = new Date(today);
+      pastWeek.setDate(pastWeek.getDate() - 7);
+      setStartDate(pastWeek.toISOString().split('T')[0]);
       setEndDate(todayStr);
     } else if (preset === 'mes') {
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -281,105 +304,77 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Métricas dinámicas calculadas según el rango de fechas
+  // Cálculo de Métricas Financieras y Ventas
   const salesMetrics = useMemo(() => {
-    if (datePreset === 'hoy' || (startDate === endDate && startDate === new Date().toISOString().split('T')[0])) {
-      return {
-        totalRevenue: 3962000,
-        ordersCount: 4,
-        avgTicket: 990500,
-        unitsSold: 4,
-        onlinePercentage: 30,
-        posPercentage: 70,
-        cash: 270000,
-        cards: 3800000,
-        transfer: 42000,
-      };
-    }
-    if (datePreset === 'ayer') {
-      return {
-        totalRevenue: 2850000,
-        ordersCount: 3,
-        avgTicket: 950000,
-        unitsSold: 3,
-        onlinePercentage: 40,
-        posPercentage: 60,
-        cash: 450000,
-        cards: 1800000,
-        transfer: 600000,
-      };
-    }
-    if (datePreset === 'semana') {
-      return {
-        totalRevenue: 24500000,
-        ordersCount: 18,
-        avgTicket: 1361111,
-        unitsSold: 21,
-        onlinePercentage: 42,
-        posPercentage: 58,
-        cash: 5200000,
-        cards: 13800000,
-        transfer: 5500000,
-      };
-    }
-    // Mes o personalizado
-    return {
-      totalRevenue: 89400000,
-      ordersCount: 64,
-      avgTicket: 1396875,
-      unitsSold: 78,
-      onlinePercentage: 48,
-      posPercentage: 52,
-      cash: 18200000,
-      cards: 49200000,
-      transfer: 22000000,
-    };
-  }, [datePreset, startDate, endDate]);
+    const totalSales = 12700000;
+    const ordersCount = 14;
+    const avgTicket = totalSales / ordersCount;
+    const cash = 1250000;
+    const cards = 7450000;
+    const transfer = 4000000;
+    const posPercentage = 75;
+    const onlinePercentage = 25;
 
-  // Cálculos detallados de Cierre de Caja
+    return {
+      totalSales,
+      ordersCount,
+      avgTicket,
+      cash,
+      cards,
+      transfer,
+      posPercentage,
+      onlinePercentage,
+    };
+  }, [startDate, endDate]);
+
+  // Cálculo del Arqueo y Cierre de Caja
   const cashClosingSummary = useMemo(() => {
-    let totalIngresos = 0;
-    let totalEgresos = 0;
-    let cashIn = 0;
-    let cashOut = 0;
-    let debitCreditTotal = 0;
+    let ingresosTotal = 0;
+    let egresosTotal = 0;
+    let efectivoTotal = 0;
+    let debitoTotal = 0;
+    let creditoTotal = 0;
     let transferTotal = 0;
 
-    cashMovements.forEach((m) => {
-      if (m.type === 'ingreso') {
-        totalIngresos += m.amount;
-        if (m.paymentMethod === 'Efectivo') cashIn += m.amount;
-        if (m.paymentMethod === 'Débito' || m.paymentMethod === 'Crédito')
-          debitCreditTotal += m.amount;
-        if (m.paymentMethod === 'Transferencia') transferTotal += m.amount;
+    cashMovements.forEach((mov) => {
+      if (mov.type === 'ingreso') {
+        ingresosTotal += mov.amount;
+        if (mov.paymentMethod === 'Efectivo') efectivoTotal += mov.amount;
+        if (mov.paymentMethod === 'Débito') debitoTotal += mov.amount;
+        if (mov.paymentMethod === 'Crédito') creditoTotal += mov.amount;
+        if (mov.paymentMethod === 'Transferencia') transferTotal += mov.amount;
       } else {
-        totalEgresos += m.amount;
-        if (m.paymentMethod === 'Efectivo') cashOut += m.amount;
+        egresosTotal += mov.amount;
+        if (mov.paymentMethod === 'Efectivo') efectivoTotal -= mov.amount;
       }
     });
 
-    const cashInHand = cashIn - cashOut; // Efectivo real en cajón de mostrador
+    const saldoNetoCaja = ingresosTotal - egresosTotal;
 
     return {
-      totalIngresos,
-      totalEgresos,
-      cashInHand,
-      debitCreditTotal,
+      ingresosTotal,
+      egresosTotal,
+      saldoNetoCaja,
+      efectivoTotal,
+      debitoTotal,
+      creditoTotal,
       transferTotal,
-      netTotal: totalIngresos - totalEgresos,
     };
   }, [cashMovements]);
 
-  // Agregar movimiento manual a la caja
+  // Manejador para agregar movimiento de caja
   const handleAddCashMovement = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!movementForm.concept || movementForm.amount <= 0) {
-      alert('Por favor complete la descripción y el monto.');
+    if (!movementForm.concept.trim() || movementForm.amount <= 0) {
+      alert('Por favor ingresa un concepto válido y un monto mayor a cero.');
       return;
     }
 
     const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
 
     const newMov: CashMovement = {
       id: `MOV-${Date.now().toString().slice(-4)}`,
@@ -402,102 +397,190 @@ export default function AdminDashboardPage() {
     });
   };
 
-  // Filtrado de Inventario
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchBrand = selectedBrand === 'Todas' || p.brand.toUpperCase() === selectedBrand.toUpperCase();
-      const matchCategory =
-        selectedCategory === 'Todas' || p.category.toUpperCase() === selectedCategory.toUpperCase();
-      const matchSearch =
-        !searchQuery.trim() ||
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return matchBrand && matchCategory && matchSearch;
+  // ========================================================
+  // GESTIÓN DE SERVICIOS DE TALLER (AGREGAR / EDITAR / BORRAR)
+  // ========================================================
+  const handleOpenAddService = () => {
+    setEditingServiceId(null);
+    setServiceFormData({
+      title: '',
+      description: '',
+      duration: '24 hs',
+      price: 0,
     });
-  }, [products, selectedBrand, selectedCategory, searchQuery]);
-
-  // Total de stock valorizado
-  const totalStockValue = useMemo(() => {
-    return products.reduce((acc, p) => {
-      const pTotal = p.variants.reduce((vAcc, v) => vAcc + v.price * v.stock, 0);
-      return acc + pTotal;
-    }, 0);
-  }, [products]);
-
-  const totalUnitsInStock = useMemo(() => {
-    return products.reduce((acc, p) => {
-      const pUnits = p.variants.reduce((vAcc, v) => vAcc + v.stock, 0);
-      return acc + pUnits;
-    }, 0);
-  }, [products]);
-
-  // Modificar stock rápido
-  const handleUpdateStock = (productId: string, variantId: string, delta: number) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        return {
-          ...p,
-          variants: p.variants.map((v) => {
-            if (v.id !== variantId) return v;
-            return { ...v, stock: Math.max(0, v.stock + delta) };
-          }),
-        };
-      })
-    );
+    setShowServiceModal(true);
   };
 
-  // Modificar precio directo
+  const handleOpenEditService = (srv: WorkshopServiceItem) => {
+    setEditingServiceId(srv.id);
+    setServiceFormData({
+      title: srv.title,
+      description: srv.description,
+      duration: srv.duration,
+      price: srv.price,
+    });
+    setShowServiceModal(true);
+  };
+
+  const handleSaveService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!serviceFormData.title.trim() || serviceFormData.price <= 0) {
+      alert('Por favor completa el nombre del servicio y un precio válido.');
+      return;
+    }
+
+    if (editingServiceId) {
+      WorkshopService.updateService(editingServiceId, serviceFormData);
+    } else {
+      WorkshopService.addService(serviceFormData);
+    }
+
+    setWorkshopServices(WorkshopService.getServices());
+    setShowServiceModal(false);
+  };
+
+  const handleDeleteService = (srv: WorkshopServiceItem) => {
+    if (confirm(`¿Estás seguro de que deseas eliminar el servicio "${srv.title}"?`)) {
+      WorkshopService.deleteService(srv.id);
+      setWorkshopServices(WorkshopService.getServices());
+    }
+  };
+
+  // ========================================================
+  // GESTIÓN DE INVENTARIO: COSTO, MARGEN % Y PRECIO DE VENTA
+  // ========================================================
+  const handleUpdateCost = (productId: string, variantId: string, newCost: number) => {
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === productId) {
+          return {
+            ...p,
+            variants: p.variants.map((v) => {
+              if (v.id === variantId) {
+                const cost = Math.max(0, newCost);
+                const margin = v.profit_margin_percent ?? 50;
+                const price = Math.round(cost * (1 + margin / 100));
+                return { ...v, cost, price, profit_margin_percent: margin };
+              }
+              return v;
+            }),
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleUpdateMargin = (productId: string, variantId: string, newMargin: number) => {
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === productId) {
+          return {
+            ...p,
+            variants: p.variants.map((v) => {
+              if (v.id === variantId) {
+                const margin = Math.max(0, newMargin);
+                const cost = v.cost ?? Math.round(v.price * 0.65);
+                const price = Math.round(cost * (1 + margin / 100));
+                return { ...v, cost, profit_margin_percent: margin, price };
+              }
+              return v;
+            }),
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
   const handleUpdatePrice = (productId: string, variantId: string, newPrice: number) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        return {
-          ...p,
-          variants: p.variants.map((v) => {
-            if (v.id !== variantId) return v;
-            return { ...v, price: newPrice };
-          }),
-        };
-      })
-    );
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === productId) {
+          return {
+            ...p,
+            variants: p.variants.map((v) => {
+              if (v.id === variantId) {
+                const price = Math.max(0, newPrice);
+                let margin = v.profit_margin_percent ?? 50;
+                if (v.cost && v.cost > 0) {
+                  margin = Math.round(((price - v.cost) / v.cost) * 100);
+                }
+                return { ...v, price, profit_margin_percent: margin };
+              }
+              return v;
+            }),
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
-  // Ajuste masivo de precios
+  const handleUpdateStock = (productId: string, variantId: string, delta: number) => {
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === productId) {
+          return {
+            ...p,
+            variants: p.variants.map((v) =>
+              v.id === variantId ? { ...v, stock: Math.max(0, v.stock + delta) } : v
+            ),
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  // Ajuste Masivo de Precios
   const handleBulkPriceAdjustment = () => {
-    if (!bulkPercent || isNaN(bulkPercent)) return;
     const factor = 1 + bulkPercent / 100;
-    setProducts((prev) =>
-      prev.map((p) => {
-        const matchBrand = selectedBrand === 'Todas' || p.brand.toUpperCase() === selectedBrand.toUpperCase();
-        const matchCategory =
-          selectedCategory === 'Todas' || p.category.toUpperCase() === selectedCategory.toUpperCase();
-        if (!matchBrand || !matchCategory) return p;
-
-        return {
-          ...p,
-          variants: p.variants.map((v) => ({
+    setProducts((prev) => {
+      const updated = prev.map((p) => ({
+        ...p,
+        variants: p.variants.map((v) => {
+          const newPrice = Math.round(v.price * factor);
+          return {
             ...v,
-            price: Math.round((v.price * factor) / 1000) * 1000,
-          })),
-        };
-      })
-    );
+            price: newPrice,
+          };
+        }),
+      }));
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setShowBulkModal(false);
-    alert(`Precios actualizados en un ${bulkPercent > 0 ? '+' : ''}${bulkPercent}% exitosamente.`);
+    alert(`Se incrementaron todos los precios del catálogo en un +${bulkPercent}%.`);
   };
 
-  // Dar de baja solo una variante específica (ej. un solo color o talle)
-  const handleDeleteVariant = (productId: string, variantId: string, variantDesc: string) => {
-    if (confirm(`¿Deseas eliminar solo la variante "${variantDesc}" de este modelo?`)) {
+  // Borrar variante individual
+  const handleDeleteVariant = (productId: string, variantId: string, variantName: string) => {
+    if (confirm(`¿Estás seguro de que deseas eliminar la variante "${variantName}"?`)) {
       setProducts((prev) => {
         const updated = prev
           .map((p) => {
             if (p.id !== productId) return p;
             const remainingVariants = p.variants.filter((v) => v.id !== variantId);
-            if (remainingVariants.length === 0) return null; // Si no quedan variantes, se elimina el producto
+            if (remainingVariants.length === 0) return null;
             return { ...p, variants: remainingVariants };
           })
           .filter(Boolean) as ProductWithVariants[];
@@ -511,52 +594,45 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Dar de baja el producto completo con todos sus colores
-  const handleDeleteProduct = (productId: string, productTitle: string) => {
-    if (confirm(`¿Estás seguro de que deseas eliminar el modelo completo "${productTitle}" y todos sus colores/variantes del catálogo?`)) {
-      setProducts((prev) => {
-        const updated = prev.filter((p) => p.id !== productId);
-        try {
-          localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
-        } catch (e) {}
-        return updated;
-      });
-    }
-  };
+  // Filtrado de Inventario
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchBrand = selectedBrand === 'Todas' || p.brand.toUpperCase() === selectedBrand.toUpperCase();
+      const matchCat = selectedCategory === 'Todas' || p.category.toUpperCase() === selectedCategory.toUpperCase();
+      const matchSearch =
+        !searchQuery.trim() ||
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.variants.some((v) => v.sku.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // Emitir Factura
-  const handleCreateInvoice = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!invoiceCustomer.name || invoiceAmount <= 0) {
-      alert('Por favor complete los datos del cliente y el monto.');
-      return;
-    }
-    const nextNum = (invoicesList.length + 4522).toString();
-    const newInv = {
-      id: `FAC-0001-0000${nextNum}`,
-      date: new Date().toLocaleString(),
-      type: invoiceType,
-      customer: invoiceCustomer.name,
-      doc: invoiceCustomer.doc || '20-12345678-9',
-      amount: invoiceAmount,
-      cae: `7438920194${Math.floor(1000 + Math.random() * 9000)}`,
-      status: 'Aprobada',
-    };
-    setInvoicesList([newInv, ...invoicesList]);
-    setInvoiceCustomer({ name: '', doc: '', email: '' });
-    setInvoiceAmount(0);
-    alert(`Comprobante ${newInv.id} generado exitosamente con CAE: ${newInv.cae}`);
-  };
+      return matchBrand && matchCat && matchSearch;
+    });
+  }, [products, selectedBrand, selectedCategory, searchQuery]);
 
-  // Cambiar estado de turno en taller
-  const handleWorkshopStatusChange = (ticketId: string, newStatus: string) => {
-    setWorkshopTickets((prev) =>
-      prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t))
+  const totalStockValue = useMemo(() => {
+    return products.reduce(
+      (acc, p) => acc + p.variants.reduce((vAcc, v) => vAcc + v.price * v.stock, 0),
+      0
     );
+  }, [products]);
+
+  const totalUnitsInStock = useMemo(() => {
+    return products.reduce(
+      (acc, p) => acc + p.variants.reduce((vAcc, v) => vAcc + v.stock, 0),
+      0
+    );
+  }, [products]);
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 0,
+    }).format(val);
   };
 
   return (
-    <div className="min-h-screen bg-zinc-100 flex flex-col font-sans text-zinc-900">
+    <div className="min-h-screen bg-zinc-100 flex flex-col font-sans text-zinc-900 pb-20">
       <Header />
 
       {/* Admin Top Header */}
@@ -571,7 +647,7 @@ export default function AdminDashboardPage() {
               Control General del Negocio
             </h1>
             <p className="text-xs text-zinc-400 mt-1">
-              Administración de ventas, punto de venta (POS), stock físico, actualización masiva de precios, taller y cierre de caja.
+              Administración de ventas, punto de venta (POS), inventario con costos & márgenes, servicios de taller y caja.
             </p>
           </div>
 
@@ -580,7 +656,7 @@ export default function AdminDashboardPage() {
               href="/admin/productos/nuevo"
               className="bg-white hover:bg-zinc-100 text-zinc-950 font-heading text-xs font-black uppercase tracking-wider px-5 py-3 rounded-xl flex items-center gap-2 shadow-lg transition-transform active:scale-95"
             >
-              <Plus className="w-4 h-4" /> Cargar Nueva Bici
+              <Plus className="w-4 h-4" /> Cargar Nuevo Artículo
             </Link>
             <button
               onClick={() => setActiveTab('pos')}
@@ -607,7 +683,7 @@ export default function AdminDashboardPage() {
             onClick={() => setActiveTab('pos')}
             className={`px-5 py-3 font-heading text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
               activeTab === 'pos'
-                ? 'border-emerald-400 text-emerald-400 font-black'
+                ? 'border-emerald-500 text-emerald-400 font-black'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
@@ -621,7 +697,7 @@ export default function AdminDashboardPage() {
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <DollarSign className="w-4 h-4" /> Cierre de Caja & Arqueo
+            <Banknote className="w-4 h-4" /> Cierre & Arqueo de Caja
           </button>
           <button
             onClick={() => setActiveTab('inventario')}
@@ -631,17 +707,7 @@ export default function AdminDashboardPage() {
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Package className="w-4 h-4" /> Inventario & Precios ({totalUnitsInStock} u.)
-          </button>
-          <button
-            onClick={() => setActiveTab('facturacion')}
-            className={`px-5 py-3 font-heading text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
-              activeTab === 'facturacion'
-                ? 'border-white text-white'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Receipt className="w-4 h-4" /> Facturación
+            <Package className="w-4 h-4" /> Inventario, Costos & Márgenes
           </button>
           <button
             onClick={() => setActiveTab('taller')}
@@ -651,29 +717,40 @@ export default function AdminDashboardPage() {
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Wrench className="w-4 h-4" /> Taller & Reparaciones ({workshopTickets.length})
+            <Wrench className="w-4 h-4" /> Taller & Servicios
+          </button>
+          <button
+            onClick={() => setActiveTab('facturacion')}
+            className={`px-5 py-3 font-heading text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+              activeTab === 'facturacion'
+                ? 'border-white text-white'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Receipt className="w-4 h-4" /> Facturación ARCA
           </button>
         </div>
       </div>
 
-      {/* Tab Contents */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 flex-1">
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
         {/* ========================================================= */}
-        {/* TAB 1: CONTROL DE VENTAS & SELECTOR DE CALENDARIO        */}
+        {/* TAB 1: CONTROL DE VENTAS Y FECHAS                         */}
         {/* ========================================================= */}
         {activeTab === 'ventas' && (
           <div className="space-y-8 animate-fadeIn">
-            {/* Barra de Filtros con Selector de Calendario y Rango de Fechas */}
-            <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex items-center gap-2 text-xs font-heading font-extrabold text-zinc-700 uppercase mr-2">
-                  <CalendarIcon className="w-4 h-4 text-zinc-950" />
-                  <span>Filtrar Período:</span>
-                </div>
+            {/* Barra de Filtro de Fechas y Calendario */}
+            <div className="bg-white p-5 sm:p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-zinc-950 font-heading font-black text-sm">
+                <CalendarIcon className="w-5 h-5 text-zinc-700" />
+                <span>Rango de Facturación:</span>
+              </div>
 
+              {/* Botones de Presets Rápidos */}
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => handleSelectDatePreset('hoy')}
-                  className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                  onClick={() => handleSelectPreset('hoy')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
                     datePreset === 'hoy'
                       ? 'bg-zinc-950 text-white shadow-xs'
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -682,8 +759,8 @@ export default function AdminDashboardPage() {
                   Hoy
                 </button>
                 <button
-                  onClick={() => handleSelectDatePreset('ayer')}
-                  className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                  onClick={() => handleSelectPreset('ayer')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
                     datePreset === 'ayer'
                       ? 'bg-zinc-950 text-white shadow-xs'
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -692,8 +769,8 @@ export default function AdminDashboardPage() {
                   Ayer
                 </button>
                 <button
-                  onClick={() => handleSelectDatePreset('semana')}
-                  className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                  onClick={() => handleSelectPreset('semana')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
                     datePreset === 'semana'
                       ? 'bg-zinc-950 text-white shadow-xs'
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -702,8 +779,8 @@ export default function AdminDashboardPage() {
                   Últimos 7 Días
                 </button>
                 <button
-                  onClick={() => handleSelectDatePreset('mes')}
-                  className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                  onClick={() => handleSelectPreset('mes')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
                     datePreset === 'mes'
                       ? 'bg-zinc-950 text-white shadow-xs'
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -713,63 +790,54 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
-              {/* Selector de Rango Personalizado (Desde / Hasta) */}
-              <div className="flex flex-wrap items-center gap-3 pt-2 lg:pt-0 border-t lg:border-t-0 border-zinc-100">
-                <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-300 px-3 py-1.5 rounded-xl">
-                  <span className="text-[11px] font-heading font-bold uppercase text-zinc-400">
-                    Desde:
-                  </span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      setDatePreset('custom');
-                    }}
-                    className="bg-transparent text-xs font-bold text-zinc-900 focus:outline-none"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-300 px-3 py-1.5 rounded-xl">
-                  <span className="text-[11px] font-heading font-bold uppercase text-zinc-400">
-                    Hasta:
-                  </span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => {
-                      setEndDate(e.target.value);
-                      setDatePreset('custom');
-                    }}
-                    className="bg-transparent text-xs font-bold text-zinc-900 focus:outline-none"
-                  />
-                </div>
+              {/* Selector de Rango Personalizado: Desde - Hasta */}
+              <div className="flex items-center gap-2 text-xs font-heading font-bold bg-zinc-50 p-2 rounded-2xl border border-zinc-200">
+                <span className="text-zinc-500 uppercase text-[10px] pl-1">Desde:</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setDatePreset('custom');
+                  }}
+                  className="px-2 py-1 bg-white border border-zinc-300 rounded-lg text-xs font-mono font-bold text-zinc-800 focus:outline-none focus:border-zinc-950"
+                />
+                <span className="text-zinc-500 uppercase text-[10px]">Hasta:</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setDatePreset('custom');
+                  }}
+                  className="px-2 py-1 bg-white border border-zinc-300 rounded-lg text-xs font-mono font-bold text-zinc-800 focus:outline-none focus:border-zinc-950"
+                />
               </div>
             </div>
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* KPIs Principales */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between text-zinc-400 mb-3">
                   <span className="text-xs font-heading font-bold uppercase tracking-wider text-zinc-500">
-                    Facturación Total
+                    Facturación Período
                   </span>
                   <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
                     <DollarSign className="w-5 h-5" />
                   </div>
                 </div>
                 <div className="text-2xl sm:text-3xl font-heading font-black text-zinc-950 font-mono">
-                  ${salesMetrics.totalRevenue.toLocaleString('es-AR')}
+                  ${salesMetrics.totalSales.toLocaleString('es-AR')}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold mt-2">
-                  <ArrowUpRight className="w-3.5 h-3.5" /> Período: {startDate} al {endDate}
+                <div className="text-xs text-emerald-600 font-semibold mt-2 flex items-center gap-1">
+                  <ArrowUpRight className="w-3.5 h-3.5" /> +18.4% vs. período anterior
                 </div>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
                 <div className="flex items-center justify-between text-zinc-400 mb-3">
                   <span className="text-xs font-heading font-bold uppercase tracking-wider text-zinc-500">
-                    Órdenes Concretadas
+                    Operaciones Cerradas
                   </span>
                   <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
                     <ShoppingBag className="w-5 h-5" />
@@ -778,9 +846,7 @@ export default function AdminDashboardPage() {
                 <div className="text-2xl sm:text-3xl font-heading font-black text-zinc-950 font-mono">
                   {salesMetrics.ordersCount}
                 </div>
-                <div className="text-xs text-zinc-500 mt-2">
-                  {salesMetrics.unitsSold} unidades despachadas
-                </div>
+                <div className="text-xs text-zinc-500 mt-2">Ventas POS & Online</div>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
@@ -789,13 +855,13 @@ export default function AdminDashboardPage() {
                     Ticket Promedio
                   </span>
                   <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-                    <Percent className="w-5 h-5" />
+                    <Receipt className="w-5 h-5" />
                   </div>
                 </div>
                 <div className="text-2xl sm:text-3xl font-heading font-black text-zinc-950 font-mono">
                   ${Math.round(salesMetrics.avgTicket).toLocaleString('es-AR')}
                 </div>
-                <div className="text-xs text-zinc-500 mt-2">Promedio por cliente</div>
+                <div className="text-xs text-zinc-500 mt-2">Por cliente atendido</div>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
@@ -810,13 +876,12 @@ export default function AdminDashboardPage() {
                 <div className="text-2xl sm:text-3xl font-heading font-black text-zinc-950 font-mono">
                   ${totalStockValue.toLocaleString('es-AR')}
                 </div>
-                <div className="text-xs text-zinc-500 mt-2">{totalUnitsInStock} bicicletas en stock</div>
+                <div className="text-xs text-zinc-500 mt-2">{totalUnitsInStock} unidades en stock</div>
               </div>
             </div>
 
             {/* Desglose por Medios de Pago & Canales */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Canales de Venta */}
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xs">
                 <h3 className="font-heading font-black text-base text-zinc-950 mb-4 flex items-center gap-2">
                   <Layers className="w-4 h-4" /> Distribución por Canal de Venta
@@ -850,7 +915,6 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* Medios de Pago */}
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xs">
                 <h3 className="font-heading font-black text-base text-zinc-950 mb-4 flex items-center gap-2">
                   <CreditCard className="w-4 h-4" /> Cobranzas por Medio de Pago
@@ -894,7 +958,6 @@ export default function AdminDashboardPage() {
         {/* ========================================================= */}
         {activeTab === 'caja' && (
           <div className="space-y-8 animate-fadeIn">
-            {/* Header del Cierre de Caja y Botón de Nuevo Movimiento */}
             <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="text-xl font-heading font-black text-zinc-950">
@@ -913,9 +976,7 @@ export default function AdminDashboardPage() {
                   <Plus className="w-3.5 h-3.5" /> Registrar Ingreso / Egreso
                 </button>
                 <button
-                  onClick={() =>
-                    alert('Imprimiendo reporte oficial de cierre de caja del día...')
-                  }
+                  onClick={() => alert('Imprimiendo reporte oficial de cierre de caja del día...')}
                   className="p-2.5 border border-zinc-300 hover:bg-zinc-50 rounded-xl text-zinc-700"
                   title="Imprimir Arqueo"
                 >
@@ -943,9 +1004,7 @@ export default function AdminDashboardPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() =>
-                            setMovementForm({ ...movementForm, type: 'egreso' })
-                          }
+                          onClick={() => setMovementForm({ ...movementForm, type: 'egreso' })}
                           className={`py-2.5 rounded-xl font-heading text-xs font-bold uppercase transition-all ${
                             movementForm.type === 'egreso'
                               ? 'bg-rose-600 text-white shadow-xs'
@@ -956,9 +1015,7 @@ export default function AdminDashboardPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() =>
-                            setMovementForm({ ...movementForm, type: 'ingreso' })
-                          }
+                          onClick={() => setMovementForm({ ...movementForm, type: 'ingreso' })}
                           className={`py-2.5 rounded-xl font-heading text-xs font-bold uppercase transition-all ${
                             movementForm.type === 'ingreso'
                               ? 'bg-emerald-600 text-white shadow-xs'
@@ -1048,57 +1105,60 @@ export default function AdminDashboardPage() {
 
             {/* TABLA DE DETALLE DE INGRESOS Y EGRESOS DEL DÍA */}
             <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
-              <div className="p-5 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/50">
-                <h3 className="font-heading font-black text-sm text-zinc-950 uppercase tracking-wider flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-zinc-500" /> Detalle Cronológico de Movimientos del Día
-                </h3>
-                <span className="text-xs text-zinc-500 font-mono">
-                  {cashMovements.length} operaciones registradas
+              <div className="p-6 border-b border-zinc-200 flex justify-between items-center bg-zinc-50/50">
+                <div>
+                  <h3 className="text-base font-heading font-black text-zinc-950">
+                    Detalle Cronológico de Movimientos
+                  </h3>
+                  <span className="text-xs text-zinc-500">
+                    Historial de entradas y salidas de fondos registradas hoy.
+                  </span>
+                </div>
+                <span className="text-xs font-mono font-bold text-zinc-600 bg-white border border-zinc-200 px-3 py-1.5 rounded-xl">
+                  {cashMovements.length} Registros
                 </span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-heading font-bold uppercase text-[10px] tracking-wider">
+                  <thead className="bg-zinc-100/80 border-b border-zinc-200 text-zinc-600 font-heading font-bold uppercase text-[10px] tracking-wider">
                     <tr>
                       <th className="py-3 px-4">Hora</th>
                       <th className="py-3 px-4">Tipo</th>
-                      <th className="py-3 px-4">Concepto / Detalle</th>
+                      <th className="py-3 px-4">Concepto / Motivo</th>
                       <th className="py-3 px-4">Categoría</th>
                       <th className="py-3 px-4">Medio de Pago</th>
-                      <th className="py-3 px-4 text-right">Monto ($)</th>
+                      <th className="py-3 px-4 text-right">Monto ($ ARS)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 font-medium">
-                    {cashMovements.map((m) => (
-                      <tr key={m.id} className="hover:bg-zinc-50/80 transition-colors">
-                        <td className="py-3 px-4 font-mono text-zinc-500">{m.time}</td>
+                    {cashMovements.map((mov) => (
+                      <tr key={mov.id} className="hover:bg-zinc-50/60 transition-colors">
+                        <td className="py-3 px-4 font-mono text-zinc-500">{mov.time} hs</td>
                         <td className="py-3 px-4">
-                          {m.type === 'ingreso' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-heading font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              <PlusCircle className="w-3 h-3" /> Ingreso
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-heading font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                              <MinusCircle className="w-3 h-3" /> Egreso
-                            </span>
-                          )}
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-heading font-bold uppercase ${
+                              mov.type === 'ingreso'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {mov.type === 'ingreso' ? '+' : '-'} {mov.type}
+                          </span>
                         </td>
-                        <td className="py-3 px-4 font-heading font-bold text-zinc-900">
-                          {m.concept}
-                        </td>
-                        <td className="py-3 px-4 text-zinc-500">{m.category}</td>
-                        <td className="py-3 px-4 text-zinc-700">
-                          <span className="px-2 py-1 bg-zinc-100 rounded-md text-[11px] font-mono">
-                            {m.paymentMethod}
+                        <td className="py-3 px-4 font-heading font-bold text-zinc-900">{mov.concept}</td>
+                        <td className="py-3 px-4 text-zinc-500">{mov.category}</td>
+                        <td className="py-3 px-4">
+                          <span className="font-heading font-bold text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded">
+                            {mov.paymentMethod}
                           </span>
                         </td>
                         <td
-                          className={`py-3 px-4 text-right font-mono font-bold text-xs ${
-                            m.type === 'ingreso' ? 'text-emerald-600' : 'text-rose-600'
+                          className={`py-3 px-4 text-right font-mono font-bold text-sm ${
+                            mov.type === 'ingreso' ? 'text-emerald-600' : 'text-rose-600'
                           }`}
                         >
-                          {m.type === 'ingreso' ? '+' : '-'}${m.amount.toLocaleString('es-AR')}
+                          {mov.type === 'ingreso' ? '+' : '-'}${mov.amount.toLocaleString('es-AR')}
                         </td>
                       </tr>
                     ))}
@@ -1107,243 +1167,184 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* RESUMEN FINANCIERO DEL CIERRE DE CAJA */}
-            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xs space-y-6">
-              <h3 className="font-heading font-black text-lg text-zinc-950 border-b border-zinc-100 pb-3 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-zinc-950" /> Resumen Consolidado para el Cierre de Caja
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Efectivo en Mano */}
-                <div className="p-5 bg-zinc-50 rounded-2xl border border-zinc-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-heading font-bold uppercase text-zinc-500">
-                      Efectivo en Caja Físico
-                    </span>
-                    <Banknote className="w-4 h-4 text-sky-600" />
-                  </div>
-                  <div className="text-xl font-mono font-black text-zinc-950">
-                    ${cashClosingSummary.cashInHand.toLocaleString('es-AR')}
-                  </div>
-                  <span className="text-[10px] text-zinc-400 mt-1 block">
-                    (Fondo inicial + Ventas cash - Gastos)
-                  </span>
+            {/* RESUMEN FINANCIERO DEL DÍA */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <div className="bg-white p-6 rounded-3xl border-2 border-emerald-500/80 shadow-md">
+                <span className="text-[10px] font-heading font-black uppercase tracking-wider text-emerald-700 block mb-1">
+                  Efectivo Físico en Caja
+                </span>
+                <div className="text-2xl font-mono font-black text-zinc-950">
+                  ${cashClosingSummary.efectivoTotal.toLocaleString('es-AR')}
                 </div>
-
-                {/* Cobros POS Débito / Crédito */}
-                <div className="p-5 bg-zinc-50 rounded-2xl border border-zinc-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-heading font-bold uppercase text-zinc-500">
-                      Cobros POS Débito / Crédito
-                    </span>
-                    <CreditCard className="w-4 h-4 text-amber-600" />
-                  </div>
-                  <div className="text-xl font-mono font-black text-zinc-950">
-                    ${cashClosingSummary.debitCreditTotal.toLocaleString('es-AR')}
-                  </div>
-                  <span className="text-[10px] text-zinc-400 mt-1 block">
-                    Acreditaciones por terminal de cobro
-                  </span>
-                </div>
-
-                {/* Transferencias Bancarias */}
-                <div className="p-5 bg-zinc-50 rounded-2xl border border-zinc-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-heading font-bold uppercase text-zinc-500">
-                      Transferencias Acreditadas
-                    </span>
-                    <Zap className="w-4 h-4 text-emerald-600" />
-                  </div>
-                  <div className="text-xl font-mono font-black text-zinc-950">
-                    ${cashClosingSummary.transferTotal.toLocaleString('es-AR')}
-                  </div>
-                  <span className="text-[10px] text-zinc-400 mt-1 block">
-                    Comprobantes bancarios verificados
-                  </span>
-                </div>
-
-                {/* Total Neto del Día */}
-                <div className="p-5 bg-zinc-950 text-white rounded-2xl shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-heading font-black uppercase text-zinc-300">
-                      Total Neto del Día
-                    </span>
-                    <DollarSign className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div className="text-xl font-mono font-black text-emerald-400">
-                    ${cashClosingSummary.netTotal.toLocaleString('es-AR')}
-                  </div>
-                  <span className="text-[10px] text-zinc-400 mt-1 block">
-                    Ingresos (${cashClosingSummary.totalIngresos.toLocaleString('es-AR')}) - Egresos (${cashClosingSummary.totalEgresos.toLocaleString('es-AR')})
-                  </span>
-                </div>
+                <span className="text-[11px] text-zinc-500 mt-1 block">Disponible para arqueo</span>
               </div>
 
-              {/* Botón de Cierre de Caja Oficial */}
-              <div className="pt-2 flex flex-col sm:flex-row justify-end gap-3">
-                <button
-                  onClick={() => {
-                    const csvContent =
-                      'data:text/csv;charset=utf-8,' +
-                      'Hora,Tipo,Concepto,Medio,Monto\n' +
-                      cashMovements
-                        .map(
-                          (m) =>
-                            `${m.time},${m.type},"${m.concept}",${m.paymentMethod},${m.amount}`
-                        )
-                        .join('\n');
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement('a');
-                    link.setAttribute('href', encodedUri);
-                    link.setAttribute(
-                      'download',
-                      `cierre_caja_${new Date().toISOString().split('T')[0]}.csv`
-                    );
-                    document.body.appendChild(link);
-                    link.click();
-                  }}
-                  className="px-6 py-3.5 border border-zinc-300 hover:border-zinc-950 rounded-xl font-heading text-xs font-bold uppercase tracking-wider text-zinc-700 flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4" /> Exportar Reporte Excel / CSV
-                </button>
+              <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
+                <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-500 block mb-1">
+                  Cobros POS Débito / Crédito
+                </span>
+                <div className="text-2xl font-mono font-black text-zinc-950">
+                  ${(cashClosingSummary.debitoTotal + cashClosingSummary.creditoTotal).toLocaleString('es-AR')}
+                </div>
+                <span className="text-[11px] text-zinc-500 mt-1 block">Acredita en cuenta comercio</span>
+              </div>
 
-                <button
-                  onClick={() =>
-                    alert(
-                      `¡Cierre de caja del día finalizado con éxito!\n\nEfectivo en caja: $${cashClosingSummary.cashInHand.toLocaleString(
-                        'es-AR'
-                      )}\nCobros POS: $${cashClosingSummary.debitCreditTotal.toLocaleString(
-                        'es-AR'
-                      )}\nTransferencias: $${cashClosingSummary.transferTotal.toLocaleString(
-                        'es-AR'
-                      )}\nTotal Neto: $${cashClosingSummary.netTotal.toLocaleString(
-                        'es-AR'
-                      )}`
-                    )
-                  }
-                  className="bg-zinc-950 hover:bg-zinc-800 text-white px-8 py-3.5 rounded-xl font-heading text-xs font-black uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Realizar Cierre de Caja del Día
-                </button>
+              <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
+                <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-500 block mb-1">
+                  Transferencias Acreditadas
+                </span>
+                <div className="text-2xl font-mono font-black text-zinc-950">
+                  ${cashClosingSummary.transferTotal.toLocaleString('es-AR')}
+                </div>
+                <span className="text-[11px] text-zinc-500 mt-1 block">Home Banking CBU/Alias</span>
+              </div>
+
+              <div className="bg-zinc-950 text-white p-6 rounded-3xl shadow-xl">
+                <span className="text-[10px] font-heading font-black uppercase tracking-wider text-emerald-400 block mb-1">
+                  Total Neto Operativo del Día
+                </span>
+                <div className="text-2xl font-mono font-black text-white">
+                  ${cashClosingSummary.saldoNetoCaja.toLocaleString('es-AR')}
+                </div>
+                <span className="text-[11px] text-zinc-400 mt-1 block">
+                  Ingresos: ${cashClosingSummary.ingresosTotal.toLocaleString('es-AR')} | Egresos: ${cashClosingSummary.egresosTotal.toLocaleString('es-AR')}
+                </span>
               </div>
             </div>
           </div>
         )}
 
         {/* ========================================================= */}
-        {/* TAB 3: POS MOSTRADOR (PUNTO DE VENTA)                     */}
+        {/* TAB 3: POS MOSTRADOR                                      */}
         {/* ========================================================= */}
         {activeTab === 'pos' && (
-          <div className="space-y-4 animate-fadeIn">
-            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-xs flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-heading font-bold text-zinc-800 uppercase tracking-wider">
-                  Caja Mostrador Activa • Bv. Nicasio Oroño 1234
-                </span>
-              </div>
-              <span className="text-xs font-mono text-zinc-500">
-                Lector de código de barras conectado
-              </span>
-            </div>
+          <div className="space-y-6 animate-fadeIn">
             <PointOfSaleInterface />
           </div>
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: INVENTARIO, STOCK & PRECIOS (ABM)                  */}
+        {/* TAB 4: INVENTARIO, COSTOS & MARGEN DE GANANCIA (%)        */}
         {/* ========================================================= */}
         {activeTab === 'inventario' && (
           <div className="space-y-6 animate-fadeIn">
-            {/* Header de Inventario y Acciones */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative w-64 sm:w-80">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por modelo o marca..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-zinc-950"
-                  />
+            {/* Header de Inventario */}
+            <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-emerald-600" />
+                  <h2 className="text-xl font-heading font-black text-zinc-950">
+                    Gestión de Inventario, Costos & Precios de Venta
+                  </h2>
                 </div>
-
-                <select
-                  value={selectedBrand}
-                  onChange={(e) => setSelectedBrand(e.target.value)}
-                  className="px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase"
-                >
-                  <option value="Todas">Todas las Marcas</option>
-                  <option value="SCOTT">SCOTT</option>
-                  <option value="VOLTA">VOLTA</option>
-                  <option value="RALEIGH">RALEIGH</option>
-                  <option value="MOOVE">MOOVE</option>
-                  <option value="ZION">ZION</option>
-                  <option value="SARS">SARS</option>
-                </select>
-
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase"
-                >
-                  <option value="Todas">Todas las Categorías</option>
-                  <option value="MTB">MTB</option>
-                  <option value="RUTA">RUTA</option>
-                  <option value="GRAVEL">GRAVEL</option>
-                  <option value="BMX">BMX</option>
-                  <option value="PASEO">PASEO</option>
-                  <option value="NIÑOS">NIÑOS</option>
-                </select>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Edita el <strong>Costo ($)</strong> o el <strong>Margen (%)</strong> para recalcular en tiempo real el precio de venta final al público.
+                </p>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowBulkModal(true)}
-                  className="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-heading text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-colors"
+                  className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
                 >
-                  <Percent className="w-3.5 h-3.5" /> Ajuste Masivo Precios
+                  <Percent className="w-3.5 h-3.5" /> Ajuste Masivo (%)
                 </button>
                 <Link
                   href="/admin/productos/nuevo"
-                  className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-heading text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Cargar Bici
+                  <Plus className="w-4 h-4" /> + Cargar Artículo
                 </Link>
               </div>
             </div>
 
-            {/* Modal de Ajuste Masivo de Precios */}
+            {/* Buscador y Filtros */}
+            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar en inventario por modelo, marca (Scott, Shimano), SKU..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <select
+                value={selectedBrand}
+                onChange={(e) => setSelectedBrand(e.target.value)}
+                className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-heading font-bold uppercase"
+              >
+                <option value="Todas">Todas las Marcas</option>
+                <option value="SCOTT">Scott</option>
+                <option value="VOLTA">Volta</option>
+                <option value="RALEIGH">Raleigh</option>
+                <option value="MOOVE">Moove</option>
+                <option value="ZION">Zion</option>
+                <option value="SARS">Sars</option>
+                <option value="SHIMANO">Shimano</option>
+                <option value="MAXXIS">Maxxis</option>
+                <option value="ROCKSHOX">RockShox</option>
+                <option value="FOX">Fox</option>
+                <option value="GARMIN">Garmin</option>
+                <option value="KRYPTONITE">Kryptonite</option>
+              </select>
+
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-heading font-bold uppercase"
+              >
+                <option value="Todas">Todas las Categorías</option>
+                <option value="MTB">MTB</option>
+                <option value="RUTA">Ruta</option>
+                <option value="GRAVEL">Gravel</option>
+                <option value="BMX">BMX</option>
+                <option value="COMPONENTES">Componentes</option>
+                <option value="ACCESORIOS">Accesorios</option>
+              </select>
+            </div>
+
+            {/* Modal de Ajuste Masivo */}
             {showBulkModal && (
               <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn">
                   <h3 className="text-xl font-heading font-black text-zinc-950 mb-2">
-                    Ajuste Masivo de Precios
+                    Actualización Masiva de Precios
                   </h3>
                   <p className="text-xs text-zinc-600 mb-6">
-                    Aplica un porcentaje de aumento o descuento a todos los productos filtrados por marca y categoría.
+                    Aplica un porcentaje de aumento o descuento a todos los artículos en inventario simultáneamente.
                   </p>
 
                   <div className="space-y-4 mb-6">
                     <div>
                       <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                        Porcentaje de Modificación (%)
+                        Porcentaje de Ajuste (%)
                       </label>
-                      <div className="flex items-center gap-2">
+                      <div className="relative">
                         <input
                           type="number"
                           value={bulkPercent}
                           onChange={(e) => setBulkPercent(Number(e.target.value))}
-                          placeholder="Ej. 10 para +10% o -5 para descuento"
-                          className="w-full px-4 py-3 bg-zinc-50 border border-zinc-300 rounded-xl text-base font-mono font-bold"
+                          className="w-full px-4 py-3 bg-zinc-50 border border-zinc-300 rounded-xl text-lg font-mono font-bold focus:outline-none"
                         />
-                        <span className="text-base font-bold text-zinc-500">%</span>
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-zinc-400">
+                          %
+                        </span>
                       </div>
                     </div>
 
-                    <div className="p-3 bg-zinc-50 rounded-xl text-xs text-zinc-600">
-                      <strong>Alcance:</strong> Marca <u>{selectedBrand}</u>, Categoría <u>{selectedCategory}</u>.
+                    <div className="flex gap-2">
+                      {[5, 10, 15, 20].map((pct) => (
+                        <button
+                          key={pct}
+                          onClick={() => setBulkPercent(pct)}
+                          className="flex-1 py-2 bg-zinc-100 hover:bg-zinc-200 rounded-xl text-xs font-heading font-bold"
+                        >
+                          +{pct}%
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -1358,94 +1359,145 @@ export default function AdminDashboardPage() {
                       onClick={handleBulkPriceAdjustment}
                       className="bg-zinc-950 text-white px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-md"
                     >
-                      Aplicar Ajuste
+                      Aplicar Ajuste Masivo
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Tabla de Artículos y Variantes con Fotos Específicas */}
-            <div className="bg-white rounded-2xl border border-zinc-200 shadow-xs overflow-hidden">
+            {/* TABLA DE INVENTARIO CON COSTO, MARGEN %, PRECIO Y GANANCIA */}
+            <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-heading font-bold uppercase text-[10px] tracking-wider">
+                  <thead className="bg-zinc-100/90 border-b border-zinc-200 text-zinc-600 font-heading font-black uppercase text-[10px] tracking-wider">
                     <tr>
-                      <th className="py-3.5 px-4">Bicicleta / Modelo</th>
-                      <th className="py-3.5 px-4">Marca</th>
-                      <th className="py-3.5 px-4">Categoría</th>
-                      <th className="py-3.5 px-4">Variante (Talle/Color)</th>
-                      <th className="py-3.5 px-4">Precio Lista ($)</th>
-                      <th className="py-3.5 px-4 text-center">Stock Físico</th>
+                      <th className="py-3.5 px-4">Producto / Modelo</th>
+                      <th className="py-3.5 px-3">Marca</th>
+                      <th className="py-3.5 px-3">Categoría</th>
+                      <th className="py-3.5 px-3">Variante</th>
+                      <th className="py-3.5 px-3 bg-zinc-50">Costo ($ ARS)</th>
+                      <th className="py-3.5 px-3 bg-zinc-50">Margen (%)</th>
+                      <th className="py-3.5 px-3 bg-emerald-50/70 text-emerald-950">Precio Venta ($)</th>
+                      <th className="py-3.5 px-3 text-emerald-700">Ganancia / u.</th>
+                      <th className="py-3.5 px-3 text-center">Stock</th>
                       <th className="py-3.5 px-4 text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 font-medium">
                     {filteredProducts.map((p) =>
-                      p.variants.map((v) => (
-                        <tr key={`${p.id}-${v.id}`} className="hover:bg-zinc-50/80 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={p.images[0]}
-                                alt={p.title}
-                                className="w-12 h-12 object-cover rounded-xl bg-zinc-100 border border-zinc-200 shrink-0"
-                              />
-                              <div>
-                                <span className="font-heading font-bold text-zinc-900 block text-xs">
-                                  {p.title}
-                                </span>
-                                <span className="text-[10px] font-mono text-zinc-400">SKU: {v.sku}</span>
+                      p.variants.map((v) => {
+                        const estimatedCost = v.cost ?? Math.round(v.price / 1.5);
+                        const marginPct = v.profit_margin_percent ?? Math.round(((v.price - estimatedCost) / estimatedCost) * 100);
+                        const unitProfit = v.price - estimatedCost;
+
+                        return (
+                          <tr key={`${p.id}-${v.id}`} className="hover:bg-zinc-50/90 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={p.images[0]}
+                                  alt={p.title}
+                                  className="w-11 h-11 object-cover rounded-xl bg-zinc-100 border border-zinc-200 shrink-0"
+                                />
+                                <div>
+                                  <span className="font-heading font-bold text-zinc-950 block text-xs">
+                                    {p.title}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-zinc-400">SKU: {v.sku}</span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 font-heading font-bold text-zinc-700">{p.brand}</td>
-                          <td className="py-3 px-4">
-                            <span className="px-2 py-0.5 bg-zinc-100 rounded text-[10px] font-heading font-bold text-zinc-600">
-                              {p.category}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-zinc-700">
-                            <strong>{v.size}</strong> • {v.color} ({v.wheel_size})
-                          </td>
-                          <td className="py-3 px-4 font-mono font-bold text-zinc-950">
-                            <div className="flex items-center gap-1.5">
-                              <span>$</span>
-                              <input
-                                type="number"
-                                value={v.price}
-                                onChange={(e) =>
-                                  handleUpdatePrice(p.id, v.id, Number(e.target.value))
-                                }
-                                className="w-28 px-2 py-1 bg-zinc-50 border border-zinc-300 rounded font-mono text-xs font-bold focus:bg-white focus:outline-none"
-                              />
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="inline-flex items-center gap-2 bg-zinc-50 border border-zinc-200 rounded-lg p-1">
-                              <button
-                                onClick={() => handleUpdateStock(p.id, v.id, -1)}
-                                className="w-6 h-6 rounded bg-white hover:bg-zinc-200 font-bold flex items-center justify-center border border-zinc-200"
-                              >
-                                -
-                              </button>
-                              <span
-                                className={`w-8 text-center font-heading font-bold text-xs ${
-                                  v.stock <= 1 ? 'text-rose-600' : 'text-zinc-900'
-                                }`}
-                              >
-                                {v.stock}
+                            </td>
+                            <td className="py-3 px-3 font-heading font-bold text-zinc-700">{p.brand}</td>
+                            <td className="py-3 px-3">
+                              <span className="px-2 py-0.5 bg-zinc-100 rounded text-[10px] font-heading font-bold text-zinc-600 uppercase">
+                                {p.category}
                               </span>
-                              <button
-                                onClick={() => handleUpdateStock(p.id, v.id, 1)}
-                                className="w-6 h-6 rounded bg-white hover:bg-zinc-200 font-bold flex items-center justify-center border border-zinc-200"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            </td>
+                            <td className="py-3 px-3 text-zinc-700">
+                              <strong>{v.size}</strong> • {v.color}
+                            </td>
+
+                            {/* Columna Costo Editable */}
+                            <td className="py-3 px-3 bg-zinc-50/70 font-mono">
+                              <div className="flex items-center gap-1">
+                                <span className="text-zinc-400">$</span>
+                                <input
+                                  type="number"
+                                  value={estimatedCost}
+                                  onChange={(e) =>
+                                    handleUpdateCost(p.id, v.id, Number(e.target.value))
+                                  }
+                                  className="w-24 px-2 py-1 bg-white border border-zinc-300 rounded-lg text-xs font-mono font-bold focus:border-zinc-950 focus:outline-none"
+                                  title="Editar costo unitario"
+                                />
+                              </div>
+                            </td>
+
+                            {/* Columna Margen % Editable */}
+                            <td className="py-3 px-3 bg-zinc-50/70 font-mono">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={marginPct}
+                                  onChange={(e) =>
+                                    handleUpdateMargin(p.id, v.id, Number(e.target.value))
+                                  }
+                                  className="w-16 px-2 py-1 bg-white border border-zinc-300 rounded-lg text-xs font-mono font-bold text-center focus:border-zinc-950 focus:outline-none"
+                                  title="Editar margen de ganancia en %"
+                                />
+                                <span className="text-zinc-500 font-bold">%</span>
+                              </div>
+                            </td>
+
+                            {/* Columna Precio de Venta Calculado / Editable */}
+                            <td className="py-3 px-3 bg-emerald-50/50 font-mono font-bold text-zinc-950">
+                              <div className="flex items-center gap-1">
+                                <span className="text-emerald-700 font-black">$</span>
+                                <input
+                                  type="number"
+                                  value={v.price}
+                                  onChange={(e) =>
+                                    handleUpdatePrice(p.id, v.id, Number(e.target.value))
+                                  }
+                                  className="w-28 px-2 py-1 bg-white border-2 border-emerald-400 rounded-lg font-mono text-xs font-black text-zinc-950 focus:bg-white focus:border-zinc-950 focus:outline-none"
+                                  title="Precio de venta al público"
+                                />
+                              </div>
+                            </td>
+
+                            {/* Ganancia Neta Calculada */}
+                            <td className="py-3 px-3 font-mono font-bold text-xs text-emerald-700">
+                              +{formatCurrency(unitProfit)}
+                            </td>
+
+                            {/* Stock Físico */}
+                            <td className="py-3 px-3 text-center">
+                              <div className="inline-flex items-center gap-1.5 bg-zinc-50 border border-zinc-200 rounded-lg p-0.5">
+                                <button
+                                  onClick={() => handleUpdateStock(p.id, v.id, -1)}
+                                  className="w-5 h-5 rounded bg-white hover:bg-zinc-200 font-bold flex items-center justify-center border border-zinc-200 text-zinc-700"
+                                >
+                                  -
+                                </button>
+                                <span
+                                  className={`w-6 text-center font-heading font-bold text-xs ${
+                                    v.stock <= 1 ? 'text-rose-600' : 'text-zinc-900'
+                                  }`}
+                                >
+                                  {v.stock}
+                                </span>
+                                <button
+                                  onClick={() => handleUpdateStock(p.id, v.id, 1)}
+                                  className="w-5 h-5 rounded bg-white hover:bg-zinc-200 font-bold flex items-center justify-center border border-zinc-200 text-zinc-700"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Acciones */}
+                            <td className="py-3 px-4 text-right">
                               <button
                                 onClick={() =>
                                   handleDeleteVariant(
@@ -1455,15 +1507,14 @@ export default function AdminDashboardPage() {
                                   )
                                 }
                                 title="Borrar esta variante (talle/color)"
-                                className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center gap-1 text-[10px] font-heading font-bold"
+                                className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors inline-flex items-center gap-1 text-[11px] font-heading font-bold"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Borrar</span>
+                                <Trash2 className="w-3.5 h-3.5" /> Borrar
                               </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1473,7 +1524,300 @@ export default function AdminDashboardPage() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 5: FACTURACIÓN & EMISIÓN DE COMPROBANTES             */}
+        {/* TAB 5: TALLER & GESTIÓN DE SERVICIOS Y PRECIOS            */}
+        {/* ========================================================= */}
+        {activeTab === 'taller' && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Sub-navegación entre Turnos y Servicios */}
+            <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-xl font-heading font-black text-zinc-950 flex items-center gap-2">
+                  <Wrench className="w-5 h-5 text-zinc-950" /> Taller Mecánico Especializado
+                </h2>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Administra los turnos de reparación y configura los <strong>servicios, tiempos de entrega y precios oficiales</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setWorkshopSubTab('turnos')}
+                  className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
+                    workshopSubTab === 'turnos'
+                      ? 'bg-zinc-950 text-white shadow-xs'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  }`}
+                >
+                  Turnos & Reparaciones ({workshopTickets.length})
+                </button>
+                <button
+                  onClick={() => setWorkshopSubTab('servicios')}
+                  className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all flex items-center gap-1.5 ${
+                    workshopSubTab === 'servicios'
+                      ? 'bg-zinc-950 text-white shadow-xs'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  }`}
+                >
+                  <Tag className="w-3.5 h-3.5" /> Servicios & Tarifas ({workshopServices.length})
+                </button>
+              </div>
+            </div>
+
+            {/* VISTA 1: GESTIÓN DE SERVICIOS Y PRECIOS DE TALLER (CRUD) */}
+            {workshopSubTab === 'servicios' && (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="flex justify-between items-center bg-zinc-50 p-4 rounded-2xl border border-zinc-200">
+                  <div>
+                    <h3 className="text-sm font-heading font-black text-zinc-900">
+                      Catálogo de Trabajos Mecánicos y Precios
+                    </h3>
+                    <span className="text-xs text-zinc-500">
+                      Los cambios de precio se reflejan automáticamente en la web de turnos y en el POS Mostrador.
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleOpenAddService}
+                    className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" /> + Nuevo Servicio
+                  </button>
+                </div>
+
+                {/* Grid de Servicios */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {workshopServices.map((srv) => (
+                    <div
+                      key={srv.id}
+                      className="bg-white p-6 rounded-3xl border border-zinc-200 hover:border-zinc-400 shadow-xs flex flex-col justify-between transition-all"
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-[10px] font-mono font-bold text-zinc-500 bg-zinc-100 px-2.5 py-1 rounded-lg">
+                            Demora: {srv.duration}
+                          </span>
+                          <span className="text-base font-mono font-black text-zinc-950">
+                            {formatCurrency(srv.price)}
+                          </span>
+                        </div>
+
+                        <h4 className="font-heading font-black text-base text-zinc-950 mb-2 leading-snug">
+                          {srv.title}
+                        </h4>
+                        <p className="text-xs text-zinc-600 leading-relaxed mb-6">
+                          {srv.description}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-4 border-t border-zinc-100">
+                        <button
+                          onClick={() => handleOpenEditService(srv)}
+                          className="flex-1 py-2 bg-zinc-100 hover:bg-zinc-200 rounded-xl text-xs font-heading font-bold uppercase text-zinc-800 flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Edit className="w-3.5 h-3.5" /> Modificar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteService(srv)}
+                          className="p-2 text-zinc-400 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition-colors"
+                          title="Borrar Servicio"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Modal para Agregar o Modificar Servicio */}
+                {showServiceModal && (
+                  <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-zinc-200 animate-fadeIn">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wrench className="w-5 h-5 text-zinc-900" />
+                        <h3 className="text-xl font-heading font-black text-zinc-950">
+                          {editingServiceId ? 'Modificar Servicio de Taller' : 'Nuevo Servicio de Taller'}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-zinc-500 mb-6">
+                        Define el título, la descripción de las tareas mecánicas, el tiempo estimado y la tarifa en pesos.
+                      </p>
+
+                      <form onSubmit={handleSaveService} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                            Nombre del Servicio *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ej. Service General & Puesta a Punto"
+                            value={serviceFormData.title}
+                            onChange={(e) =>
+                              setServiceFormData({ ...serviceFormData, title: e.target.value })
+                            }
+                            className="w-full px-4 py-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:bg-white focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                            Descripción del Trabajo *
+                          </label>
+                          <textarea
+                            rows={3}
+                            required
+                            placeholder="Detalla qué incluye el servicio (ej. ajuste de cambios, purga, lubricación, centrado)..."
+                            value={serviceFormData.description}
+                            onChange={(e) =>
+                              setServiceFormData({ ...serviceFormData, description: e.target.value })
+                            }
+                            className="w-full px-4 py-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:bg-white focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                              Tiempo de Demora *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Ej. 24 hs / 48 hs / 72 hs"
+                              value={serviceFormData.duration}
+                              onChange={(e) =>
+                                setServiceFormData({ ...serviceFormData, duration: e.target.value })
+                              }
+                              className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:bg-white focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                              Precio ($ ARS) *
+                            </label>
+                            <input
+                              type="number"
+                              required
+                              placeholder="0"
+                              value={serviceFormData.price || ''}
+                              onChange={(e) =>
+                                setServiceFormData({
+                                  ...serviceFormData,
+                                  price: Number(e.target.value),
+                                })
+                              }
+                              className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-mono font-bold focus:bg-white focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4">
+                          <button
+                            type="button"
+                            onClick={() => setShowServiceModal(false)}
+                            className="px-5 py-2.5 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            className="bg-zinc-950 text-white px-6 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-md"
+                          >
+                            {editingServiceId ? 'Guardar Modificación' : 'Crear Servicio'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* VISTA 2: TURNOS & REPARACIONES KANBAN */}
+            {workshopSubTab === 'turnos' && (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {workshopTickets.map((t) => (
+                    <div
+                      key={t.id}
+                      className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-xs flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-[11px] font-mono font-bold text-zinc-400">
+                            #{t.id}
+                          </span>
+                          <select
+                            value={t.status}
+                            onChange={(e) => {
+                              const newStatus = e.target.value;
+                              setWorkshopTickets((prev) =>
+                                prev.map((item) =>
+                                  item.id === t.id ? { ...item, status: newStatus } : item
+                                )
+                              );
+                            }}
+                            className={`text-[10px] font-heading font-bold uppercase px-2.5 py-1 rounded-full border ${
+                              t.status === 'Listo para Retiro'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : t.status === 'En Taller'
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : t.status === 'Entregado'
+                                ? 'bg-zinc-100 text-zinc-600 border-zinc-300'
+                                : 'bg-blue-100 text-blue-800 border-blue-300'
+                            }`}
+                          >
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En Taller">En Taller</option>
+                            <option value="Listo para Retiro">Listo para Retiro</option>
+                            <option value="Entregado">Entregado</option>
+                          </select>
+                        </div>
+
+                        <h3 className="font-heading font-black text-sm text-zinc-950 mb-1">{t.bike}</h3>
+                        <div className="text-xs text-zinc-600 font-medium mb-3">
+                          <strong>Servicio:</strong> {t.serviceType}
+                        </div>
+
+                        <div className="p-3 bg-zinc-50 rounded-2xl space-y-1 text-xs text-zinc-600 mb-4">
+                          <div>
+                            <strong>Cliente:</strong> {t.client}
+                          </div>
+                          <div>
+                            <strong>Fecha de Turno:</strong> {t.date}
+                          </div>
+                          <div className="text-zinc-950 font-mono font-bold pt-1">
+                            Costo Estimado: {formatCurrency(t.price)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <a
+                        href={`https://wa.me/${t.phone}?text=Hola%20${encodeURIComponent(
+                          t.client
+                        )}!%20Te%20escribimos%20de%20Oroño%20Bike.%20Tu%20bicicleta%20${encodeURIComponent(
+                          t.bike
+                        )}%20se%20encuentra%20${encodeURIComponent(
+                          t.status === 'Listo para Retiro'
+                            ? 'LISTA PARA RETIRAR en el taller de Bv. Oroño 1234.'
+                            : 'en estado: ' + t.status
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-heading text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-xs"
+                      >
+                        <Send className="w-3.5 h-3.5" /> Avisar por WhatsApp
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 6: FACTURACIÓN & EMISIÓN DE COMPROBANTES             */}
         {/* ========================================================= */}
         {activeTab === 'facturacion' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fadeIn">
@@ -1482,7 +1826,31 @@ export default function AdminDashboardPage() {
               <h2 className="text-lg font-heading font-black text-zinc-950 mb-4 flex items-center gap-2">
                 <Receipt className="w-5 h-5" /> Nueva Factura Electrónica
               </h2>
-              <form onSubmit={handleCreateInvoice} className="space-y-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!invoiceCustomer.name || invoiceAmount <= 0) {
+                    alert('Por favor complete los datos del cliente y el monto.');
+                    return;
+                  }
+                  const nextNum = (invoicesList.length + 4522).toString();
+                  const newInv = {
+                    id: `FAC-0001-0000${nextNum}`,
+                    date: new Date().toLocaleString(),
+                    type: invoiceType,
+                    customer: invoiceCustomer.name,
+                    doc: invoiceCustomer.doc || '20-12345678-9',
+                    amount: invoiceAmount,
+                    cae: `7438920194${Math.floor(1000 + Math.random() * 9000)}`,
+                    status: 'Aprobada',
+                  };
+                  setInvoicesList([newInv, ...invoicesList]);
+                  setInvoiceCustomer({ name: '', doc: '', email: '' });
+                  setInvoiceAmount(0);
+                  alert(`Comprobante ${newInv.id} generado exitosamente con CAE: ${newInv.cae}`);
+                }}
+                className="space-y-4"
+              >
                 <div>
                   <label className="block text-[11px] font-heading font-bold uppercase tracking-wider text-zinc-600 mb-1.5">
                     Tipo de Comprobante
@@ -1620,99 +1988,6 @@ export default function AdminDashboardPage() {
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================= */}
-        {/* TAB 6: TALLER & CONTROL DE REPARACIONES                   */}
-        {/* ========================================================= */}
-        {activeTab === 'taller' && (
-          <div className="space-y-6 animate-fadeIn">
-            <div className="flex justify-between items-center bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs">
-              <div>
-                <h2 className="text-lg font-heading font-black text-zinc-950">
-                  Turnos de Service & Reparaciones
-                </h2>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Gestiona el estado mecánico de cada bicicleta y notifica al cliente con un click por WhatsApp.
-                </p>
-              </div>
-              <Link
-                href="/taller"
-                className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" /> Nuevo Turno Taller
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {workshopTickets.map((t) => (
-                <div
-                  key={t.id}
-                  className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="text-[11px] font-mono font-bold text-zinc-400">
-                        #{t.id}
-                      </span>
-                      <select
-                        value={t.status}
-                        onChange={(e) => handleWorkshopStatusChange(t.id, e.target.value)}
-                        className={`text-[10px] font-heading font-bold uppercase px-2.5 py-1 rounded-full border ${
-                          t.status === 'Listo para Retiro'
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                            : t.status === 'En Taller'
-                            ? 'bg-amber-100 text-amber-800 border-amber-300'
-                            : t.status === 'Entregado'
-                            ? 'bg-zinc-100 text-zinc-600 border-zinc-300'
-                            : 'bg-blue-100 text-blue-800 border-blue-300'
-                        }`}
-                      >
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="En Taller">En Taller</option>
-                        <option value="Listo para Retiro">Listo para Retiro</option>
-                        <option value="Entregado">Entregado</option>
-                      </select>
-                    </div>
-
-                    <h3 className="font-heading font-black text-sm text-zinc-950 mb-1">{t.bike}</h3>
-                    <div className="text-xs text-zinc-600 font-medium mb-3">
-                      <strong>Servicio:</strong> {t.serviceType}
-                    </div>
-
-                    <div className="p-3 bg-zinc-50 rounded-xl space-y-1 text-xs text-zinc-600 mb-4">
-                      <div>
-                        <strong>Cliente:</strong> {t.client}
-                      </div>
-                      <div>
-                        <strong>Fecha de Turno:</strong> {t.date}
-                      </div>
-                      <div className="text-zinc-950 font-mono font-bold pt-1">
-                        Costo Estimado: ${t.price.toLocaleString('es-AR')}
-                      </div>
-                    </div>
-                  </div>
-
-                  <a
-                    href={`https://wa.me/${t.phone}?text=Hola%20${encodeURIComponent(
-                      t.client
-                    )}!%20Te%20escribimos%20de%20Oroño%20Bike.%20Tu%20bicicleta%20${encodeURIComponent(
-                      t.bike
-                    )}%20se%20encuentra%20${encodeURIComponent(
-                      t.status === 'Listo para Retiro'
-                        ? 'LISTA PARA RETIRAR en el taller de Bv. Oroño 1234.'
-                        : 'en estado: ' + t.status
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-heading text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-xs"
-                  >
-                    <Send className="w-3.5 h-3.5" /> Avisar por WhatsApp
-                  </a>
-                </div>
-              ))}
             </div>
           </div>
         )}
