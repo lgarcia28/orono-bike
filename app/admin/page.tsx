@@ -358,6 +358,7 @@ export default function AdminDashboardPage() {
     ],
   });
 
+  const [receptionProductSearch, setReceptionProductSearch] = useState('');
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
   const [newSupplierForm, setNewSupplierForm] = useState({
     name: '',
@@ -692,6 +693,7 @@ export default function AdminDashboardPage() {
   const openNewReceptionModal = () => {
     const firstProd = products[0];
     const firstVar = firstProd?.variants[0];
+    setReceptionProductSearch('');
     setReceptionForm({
       supplierId: suppliers[0]?.id || 'sup-01',
       invoiceNumber: '',
@@ -709,6 +711,74 @@ export default function AdminDashboardPage() {
       ],
     });
     setShowNewReceptionModal(true);
+  };
+
+  // Buscador de productos por palabras o código SKU para recepción
+  const filteredReceptionSearchResults = useMemo(() => {
+    if (!receptionProductSearch.trim()) return [];
+    const q = receptionProductSearch.toLowerCase().trim();
+
+    const results: { product: ProductWithVariants; variant: ProductVariant }[] = [];
+    for (const p of products) {
+      const pMatch =
+        p.title.toLowerCase().includes(q) ||
+        p.brand.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q);
+
+      for (const v of p.variants) {
+        const skuMatch = v.sku && v.sku.toLowerCase().includes(q);
+        const varMatch =
+          (v.size && v.size.toLowerCase().includes(q)) ||
+          (v.color && v.color.toLowerCase().includes(q));
+
+        if (pMatch || skuMatch || varMatch) {
+          results.push({ product: p, variant: v });
+        }
+      }
+    }
+    return results.slice(0, 8);
+  }, [products, receptionProductSearch]);
+
+  const handleAddProductFromSearch = (product: ProductWithVariants, variant: ProductVariant) => {
+    const cost = variant.cost || Math.round((variant.price || 0) / 1.5);
+    setReceptionForm((prev) => {
+      // Si hay una única fila inicial por defecto sin editar, reemplazarla con el producto buscado
+      const firstRow = prev.items[0];
+      const isInitialDefaultRow =
+        prev.items.length === 1 &&
+        firstRow &&
+        firstRow.quantity === 1 &&
+        firstRow.productId === (products[0]?.id || '');
+
+      if (isInitialDefaultRow) {
+        return {
+          ...prev,
+          items: [
+            {
+              id: firstRow.id,
+              productId: product.id,
+              variantId: variant.id,
+              quantity: 1,
+              unitCost: cost,
+            },
+          ],
+        };
+      }
+
+      // Si ya hay artículos cargados, agregar como nueva fila a la planilla
+      const newRow: ReceptionItemDraft = {
+        id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        productId: product.id,
+        variantId: variant.id,
+        quantity: 1,
+        unitCost: cost,
+      };
+      return {
+        ...prev,
+        items: [...prev.items, newRow],
+      };
+    });
+    setReceptionProductSearch('');
   };
 
   const handleAddReceptionRow = () => {
@@ -885,16 +955,23 @@ export default function AdminDashboardPage() {
 
     const newSup: SupplierRecord = {
       id: `sup-${Date.now()}`,
-      name: newSupplierForm.name,
-      cuit: newSupplierForm.cuit || '30-00000000-0',
-      contactPerson: newSupplierForm.contactPerson || 'Contacto',
-      phone: newSupplierForm.phone || '00000000',
-      email: newSupplierForm.email || 'proveedor@oronobike.com.ar',
+      name: newSupplierForm.name.trim(),
+      cuit: newSupplierForm.cuit.trim() || '30-00000000-0',
+      contactPerson: newSupplierForm.contactPerson.trim() || 'Contacto',
+      phone: newSupplierForm.phone.trim() || '00000000',
+      email: newSupplierForm.email.trim() || 'proveedor@oronobike.com.ar',
       category: newSupplierForm.category,
       totalPurchased: 0,
     };
 
-    setSuppliers([...suppliers, newSup]);
+    const updatedSuppliers = [...suppliers, newSup];
+    setSuppliers(updatedSuppliers);
+    try {
+      localStorage.setItem('orono_suppliers', JSON.stringify(updatedSuppliers));
+    } catch (err) {}
+
+    // Preseleccionar el nuevo proveedor en la planilla de recepción activa
+    setReceptionForm((prev) => ({ ...prev, supplierId: newSup.id }));
     setShowAddSupplierModal(false);
     setNewSupplierForm({
       name: '',
@@ -1819,19 +1896,39 @@ export default function AdminDashboardPage() {
                       {/* Cabecera de la Factura */}
                       <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div>
-                          <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
-                            Proveedor *
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
+                              Proveedor *
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setShowAddSupplierModal(true)}
+                              className="text-[10px] font-heading font-bold text-zinc-950 hover:underline flex items-center gap-0.5"
+                              title="Crear un nuevo proveedor"
+                            >
+                              <Plus className="w-3 h-3" /> + Nuevo Proveedor
+                            </button>
+                          </div>
                           <select
                             value={receptionForm.supplierId}
-                            onChange={(e) => setReceptionForm({ ...receptionForm, supplierId: e.target.value })}
+                            onChange={(e) => {
+                              if (e.target.value === 'NEW_SUPPLIER') {
+                                setShowAddSupplierModal(true);
+                              } else {
+                                setReceptionForm({ ...receptionForm, supplierId: e.target.value });
+                              }
+                            }}
                             className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
                           >
+                            <option value="" disabled>Seleccionar proveedor...</option>
                             {suppliers.map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.name} (CUIT: {s.cuit})
                               </option>
                             ))}
+                            <option value="NEW_SUPPLIER" className="font-bold text-emerald-700 bg-emerald-50">
+                              + Agregar Nuevo Proveedor a la Lista...
+                            </option>
                           </select>
                         </div>
 
@@ -1877,6 +1974,69 @@ export default function AdminDashboardPage() {
                             <option value="Débito">Débito</option>
                           </select>
                         </div>
+                      </div>
+
+                      {/* Buscador Rápido de Producto por Palabras o Código SKU */}
+                      <div className="relative">
+                        <div className="relative flex items-center">
+                          <Search className="w-4 h-4 absolute left-3.5 text-zinc-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="🔍 Buscar artículo por palabras o código SKU (ej: Spark, XT, SC-SPK, SC-CAS, SHI-PD...) para agregar a la planilla..."
+                            value={receptionProductSearch}
+                            onChange={(e) => setReceptionProductSearch(e.target.value)}
+                            className="w-full pl-10 pr-9 py-2.5 bg-white border-2 border-zinc-200 focus:border-zinc-950 rounded-2xl text-xs font-medium placeholder:text-zinc-400 focus:outline-none shadow-xs transition-colors"
+                          />
+                          {receptionProductSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setReceptionProductSearch('')}
+                              className="absolute right-3.5 text-zinc-400 hover:text-zinc-700 text-xs font-bold"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Desplegable de Resultados de Búsqueda por Palabras o Código */}
+                        {filteredReceptionSearchResults.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-2xl shadow-2xl z-30 max-h-64 overflow-y-auto divide-y divide-zinc-100 animate-fadeIn">
+                            <div className="px-3.5 py-2 bg-zinc-50 text-[10px] font-heading font-bold uppercase text-zinc-500 tracking-wider flex justify-between items-center">
+                              <span>Coincidencias encontradas ({filteredReceptionSearchResults.length})</span>
+                              <span className="text-zinc-400">Clic para sumar a la planilla</span>
+                            </div>
+                            {filteredReceptionSearchResults.map(({ product, variant }) => (
+                              <div
+                                key={`${product.id}-${variant.id}`}
+                                onClick={() => handleAddProductFromSearch(product, variant)}
+                                className="p-2.5 hover:bg-zinc-50 flex items-center justify-between cursor-pointer transition-colors group"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className="text-[10px] font-mono font-bold bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded border border-zinc-200 group-hover:bg-zinc-950 group-hover:text-white transition-colors">
+                                    {variant.sku || 'SIN CÓD'}
+                                  </span>
+                                  <div>
+                                    <div className="text-xs font-bold text-zinc-950">
+                                      [{product.brand}] {product.title}
+                                    </div>
+                                    <div className="text-[11px] text-zinc-500">
+                                      Talle: <span className="font-semibold text-zinc-700">{variant.size}</span> ({variant.color}) · Stock actual: <span className="font-mono font-bold text-zinc-700">{variant.stock || 0} u.</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="text-right">
+                                  <span className="text-xs font-mono font-bold text-zinc-950 block">
+                                    Costo: {formatCurrency(variant.cost || Math.round(variant.price / 1.5))}
+                                  </span>
+                                  <span className="text-[10px] text-emerald-600 font-bold uppercase group-hover:underline">
+                                    + Cargar a Planilla
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Planilla de Artículos (Spreadsheet) */}
@@ -1933,11 +2093,14 @@ export default function AdminDashboardPage() {
                                         onChange={(e) => handleUpdateReceptionRow(row.id, { productId: e.target.value })}
                                         className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
                                       >
-                                        {products.map((p) => (
-                                          <option key={p.id} value={p.id}>
-                                            [{p.brand}] {p.title}
-                                          </option>
-                                        ))}
+                                        {products.map((p) => {
+                                          const firstSku = p.variants[0]?.sku;
+                                          return (
+                                            <option key={p.id} value={p.id}>
+                                              [{p.brand}] {p.title} {firstSku ? `(Cód: ${firstSku})` : ''}
+                                            </option>
+                                          );
+                                        })}
                                       </select>
                                     </td>
                                     <td className="py-2.5 px-3">
@@ -1948,7 +2111,7 @@ export default function AdminDashboardPage() {
                                       >
                                         {currentProduct?.variants.map((v) => (
                                           <option key={v.id} value={v.id}>
-                                            {v.size} ({v.color})
+                                            {v.size} ({v.color}) {v.sku ? `— Cód: ${v.sku}` : ''}
                                           </option>
                                         ))}
                                       </select>
@@ -2092,7 +2255,7 @@ export default function AdminDashboardPage() {
 
             {/* Modal para Crear Proveedor */}
             {showAddSupplierModal && (
-              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn">
                   <h3 className="text-xl font-heading font-black text-zinc-950 mb-2">
                     Nuevo Proveedor / Distribuidor
