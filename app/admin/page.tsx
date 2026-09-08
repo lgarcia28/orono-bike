@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Header } from '@/app/components/layout/Header';
 import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
@@ -53,6 +53,11 @@ import {
   UserPlus,
   ArrowDownLeft,
   Briefcase,
+  Camera,
+  Sparkles,
+  Key,
+  Loader2,
+  Upload,
 } from 'lucide-react';
 
 type AdminTab = 'ventas' | 'pos_facturacion' | 'inventario' | 'recepcion' | 'clientes' | 'caja' | 'taller';
@@ -359,6 +364,20 @@ export default function AdminDashboardPage() {
   });
 
   const [receptionProductSearch, setReceptionProductSearch] = useState('');
+  
+  // Estado de IA para Escaneo de Facturas (Gemini 1.5 Flash)
+  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('orono_gemini_api_key') || '';
+    }
+    return '';
+  });
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [tempApiKey, setTempApiKey] = useState('');
+  const [isScanningInvoice, setIsScanningInvoice] = useState(false);
+  const [scanStatusMessage, setScanStatusMessage] = useState('');
+  const invoiceFileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
   const [newSupplierForm, setNewSupplierForm] = useState({
     name: '',
@@ -779,6 +798,171 @@ export default function AdminDashboardPage() {
       };
     });
     setReceptionProductSearch('');
+  };
+
+  // Manejador para escanear factura mediante foto o archivo con IA
+  const handleScanInvoiceFile = async (file: File) => {
+    if (!file) return;
+
+    setIsScanningInvoice(true);
+    setScanStatusMessage('Leyendo archivo de la factura...');
+
+    try {
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(file);
+      });
+
+      const base64Data = await base64Promise;
+      setScanStatusMessage('Analizando comprobante con IA de Gemini 1.5 Flash...');
+
+      const res = await fetch('/api/ai/scan-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: base64Data,
+          mimeType: file.type || 'image/jpeg',
+          userApiKey: geminiApiKey,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!json.success || !json.data) {
+        throw new Error(json.error || 'No se pudieron extraer datos de la factura.');
+      }
+
+      setScanStatusMessage('Asociando artículos con el catálogo de Oroño Bike...');
+      const extracted = json.data;
+
+      // 1. Vincular o crear Proveedor
+      let matchedSupplier = suppliers.find((s) => {
+        if (extracted.supplierCuit && s.cuit) {
+          const c1 = s.cuit.replace(/[^0-9]/g, '');
+          const c2 = extracted.supplierCuit.replace(/[^0-9]/g, '');
+          if (c1 && c2 && c1 === c2) return true;
+        }
+        if (extracted.supplierName && s.name) {
+          return (
+            s.name.toLowerCase().includes(extracted.supplierName.toLowerCase()) ||
+            extracted.supplierName.toLowerCase().includes(s.name.toLowerCase())
+          );
+        }
+        return false;
+      });
+
+      let targetSupplierId = matchedSupplier ? matchedSupplier.id : suppliers[0]?.id || 'sup-01';
+
+      if (!matchedSupplier && extracted.supplierName) {
+        const autoSupplier: SupplierRecord = {
+          id: `sup-${Date.now()}`,
+          name: extracted.supplierName,
+          cuit: extracted.supplierCuit || '30-00000000-0',
+          contactPerson: 'Contacto Facturación',
+          phone: '00000000',
+          email: 'facturas@proveedor.com.ar',
+          category: 'General',
+          totalPurchased: 0,
+        };
+        const updatedSuppliers = [...suppliers, autoSupplier];
+        setSuppliers(updatedSuppliers);
+        try {
+          localStorage.setItem('orono_suppliers', JSON.stringify(updatedSuppliers));
+        } catch (e) {}
+        targetSupplierId = autoSupplier.id;
+      }
+
+      // 2. Mapear renglones de artículos
+      const newItems: ReceptionItemDraft[] = [];
+
+      if (extracted.items && extracted.items.length > 0) {
+        for (let i = 0; i < extracted.items.length; i++) {
+          const it = extracted.items[i];
+          const desc = (it.description || '').toLowerCase();
+          const code = (it.code || '').toLowerCase();
+
+          let bestProd = products[0];
+          let bestVar = products[0]?.variants[0];
+          let found = false;
+
+          for (const p of products) {
+            const pTitle = p.title.toLowerCase();
+            const pBrand = p.brand.toLowerCase();
+
+            for (const v of p.variants) {
+              const vSku = (v.sku || '').toLowerCase();
+              if (code && vSku && (vSku.includes(code) || code.includes(vSku))) {
+                bestProd = p;
+                bestVar = v;
+                found = true;
+                break;
+              }
+              if (desc && (desc.includes(pTitle) || (desc.includes(pBrand) && desc.includes(v.size.toLowerCase())))) {
+                bestProd = p;
+                bestVar = v;
+                found = true;
+                break;
+              }
+            }
+            if (found) break;
+          }
+
+          newItems.push({
+            id: `row-${Date.now()}-${i}`,
+            productId: bestProd?.id || products[0]?.id || '',
+            variantId: bestVar?.id || products[0]?.variants[0]?.id || '',
+            quantity: Math.max(1, Number(it.quantity) || 1),
+            unitCost: Math.max(0, Number(it.unitCost) || bestVar?.cost || 0),
+          });
+        }
+      }
+
+      // 3. Cargar en el estado de la planilla
+      setReceptionForm((prev) => ({
+        ...prev,
+        supplierId: targetSupplierId,
+        invoiceNumber: extracted.invoiceNumber || prev.invoiceNumber,
+        date: extracted.invoiceDate || prev.date,
+        paymentMethod: extracted.paymentMethod || prev.paymentMethod,
+        notes: extracted.notes || prev.notes,
+        items: newItems.length > 0 ? newItems : prev.items,
+      }));
+
+      const demoNotice = json.isDemo
+        ? '\n\n💡 Aviso: Se ejecutó en Modo Demostración porque aún no guardaste tu clave gratis de Google. Podés configurarla haciendo clic en "Clave IA (Gratis)".'
+        : '';
+
+      alert(
+        `¡Factura procesada con éxito por IA! 🤖✨\n• Proveedor: ${extracted.supplierName || 'Detectado'}\n• N° Factura: ${extracted.invoiceNumber || 'Detectado'}\n• Artículos leídos: ${newItems.length}${demoNotice}`
+      );
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error al procesar la factura con IA: ${err.message || 'Intenta nuevamente o verifica la imagen.'}`);
+    } finally {
+      setIsScanningInvoice(false);
+      setScanStatusMessage('');
+      if (invoiceFileInputRef.current) {
+        invoiceFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleSaveGeminiKey = (key: string) => {
+    const trimmed = key.trim();
+    setGeminiApiKey(trimmed);
+    try {
+      if (trimmed) {
+        localStorage.setItem('orono_gemini_api_key', trimmed);
+      } else {
+        localStorage.removeItem('orono_gemini_api_key');
+      }
+    } catch (e) {}
+    setShowApiKeyModal(false);
+    if (trimmed) {
+      alert('¡Clave gratuita de Gemini guardada con éxito! Ahora podés escanear cualquier factura real.');
+    }
   };
 
   const handleAddReceptionRow = () => {
@@ -1866,9 +2050,43 @@ export default function AdminDashboardPage() {
             {/* Modal para Registrar Factura de Compra en Planilla (Multi-artículo) */}
             {showNewReceptionModal && (
               <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-                <div className="bg-white rounded-3xl p-5 sm:p-8 max-w-5xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto max-h-[94vh] flex flex-col">
+                <div className="bg-white rounded-3xl p-5 sm:p-8 max-w-5xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto max-h-[94vh] flex flex-col relative">
+                  {/* Overlay de Escaneo con IA */}
+                  {isScanningInvoice && (
+                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-3xl z-40 flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
+                      <div className="w-16 h-16 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-600 flex items-center justify-center mb-4 shadow-lg animate-pulse">
+                        <Sparkles className="w-8 h-8 text-emerald-600 animate-spin" />
+                      </div>
+                      <h4 className="text-lg font-heading font-black text-zinc-950 mb-1">
+                        Escaneando Factura con IA (Gemini 1.5 Flash)
+                      </h4>
+                      <p className="text-xs text-zinc-600 max-w-sm mb-4">
+                        {scanStatusMessage || 'Extrayendo proveedor, números de comprobante, renglones y costos...'}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs font-mono font-bold text-emerald-800 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-300 shadow-xs">
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                        <span>Leyendo y digitalizando comprobante...</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Input de archivo oculto para captura con cámara o archivo */}
+                  <input
+                    ref={invoiceFileInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleScanInvoiceFile(file);
+                      }
+                    }}
+                  />
+
                   {/* Modal Header */}
-                  <div className="flex items-start justify-between pb-4 border-b border-zinc-200">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-zinc-200 gap-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center">
@@ -1882,13 +2100,48 @@ export default function AdminDashboardPage() {
                         Ingresá los artículos de la factura tipo planilla: las cantidades <strong>se sumarán al stock físico</strong> y el total generará un <strong>egreso financiero</strong> en caja.
                       </p>
                     </div>
-                    <button
-                      onClick={() => setShowNewReceptionModal(false)}
-                      className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-xl hover:bg-zinc-100 transition-colors"
-                      title="Cerrar"
-                    >
-                      <span className="text-lg font-bold">✕</span>
-                    </button>
+
+                    {/* Acciones Rápidas con IA y Cerrar */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <button
+                        type="button"
+                        onClick={() => invoiceFileInputRef.current?.click()}
+                        disabled={isScanningInvoice}
+                        className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-heading font-bold uppercase tracking-wider px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all hover:scale-105 active:scale-95"
+                        title="Sacar foto o subir factura/PDF para completar automáticamente con IA"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>Escanear con IA</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTempApiKey(geminiApiKey);
+                          setShowApiKeyModal(true);
+                        }}
+                        className="border border-zinc-200 hover:bg-zinc-100 text-zinc-700 text-xs font-heading font-bold px-2.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors"
+                        title="Configurar Clave Gratuita de Google Gemini"
+                      >
+                        <Key className="w-3.5 h-3.5 text-zinc-500" />
+                        <span className="hidden md:inline">Clave IA</span>
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            geminiApiKey ? 'bg-emerald-500 ring-2 ring-emerald-200' : 'bg-amber-400'
+                          }`}
+                          title={geminiApiKey ? 'Clave Gemini configurada' : 'Modo Demo (Clic para ingresar clave gratis)'}
+                        />
+                      </button>
+
+                      <button
+                        onClick={() => setShowNewReceptionModal(false)}
+                        className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-xl hover:bg-zinc-100 transition-colors"
+                        title="Cerrar"
+                      >
+                        <span className="text-lg font-bold">✕</span>
+                      </button>
+                    </div>
                   </div>
 
                   <form onSubmit={handleSaveReception} className="flex flex-col flex-1 overflow-hidden pt-4 gap-4">
@@ -2328,6 +2581,87 @@ export default function AdminDashboardPage() {
                         className="bg-zinc-950 text-white px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-md"
                       >
                         Guardar Proveedor
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal para Configurar Clave Gratuita de Google Gemini */}
+            {showApiKeyModal && (
+              <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-zinc-200 animate-fadeIn">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-9 h-9 rounded-xl bg-zinc-950 text-white flex items-center justify-center">
+                      <Key className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-heading font-black text-zinc-950">
+                        Clave IA Gratuita (Google Gemini)
+                      </h3>
+                      <span className="text-[11px] text-zinc-500 font-medium block">
+                        Para lectura automática de facturas mediante foto o PDF.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 my-4 text-xs text-emerald-900 space-y-2">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-950">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>¡100% Gratuito y Oficial de Google!</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-emerald-800">
+                      Google te permite procesar <strong>hasta 1.500 facturas por día gratis</strong> (más que suficiente para cualquier bicicletería) y <strong>no requiere ingresar tarjeta de crédito</strong>.
+                    </p>
+                    <div className="pt-1">
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-xl font-heading font-bold text-[11px] uppercase tracking-wider shadow-xs transition-colors"
+                      >
+                        <span>Obtener mi clave gratis en Google AI Studio ↗</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSaveGeminiKey(tempApiKey);
+                    }}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Pegá tu API Key de Gemini
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ej: AIzaSyD..."
+                        value={tempApiKey}
+                        onChange={(e) => setTempApiKey(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                      />
+                      <span className="text-[10px] text-zinc-400 mt-1 block">
+                        Se guardará de forma privada en tu navegador. Si no ingresás ninguna clave, el sistema operará en modo demostración.
+                      </span>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKeyModal(false)}
+                        className="px-4 py-2 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="bg-zinc-950 hover:bg-zinc-800 text-white px-5 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider shadow-md"
+                      >
+                        Guardar Clave IA
                       </button>
                     </div>
                   </form>
