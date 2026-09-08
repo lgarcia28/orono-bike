@@ -122,9 +122,8 @@ export function PointOfSaleInterface() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'pos_debit' | 'pos_credit' | 'transfer'>('cash');
   const [billingType, setBillingType] = useState<'FACTURA_B' | 'FACTURA_A' | 'TICKET_LOCAL'>('FACTURA_B');
   
-  // Datos del Cliente (Si se dejan vacíos, se emite automáticamente a Consumidor Final)
-  const [clientFirstName, setClientFirstName] = useState('');
-  const [clientLastName, setClientLastName] = useState('');
+  // Datos del Cliente (Si se deja vacío, se emite automáticamente a Consumidor Final)
+  const [clientFullName, setClientFullName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [docType, setDocType] = useState<'DNI' | 'CUIT'>('DNI');
@@ -231,7 +230,7 @@ export function PointOfSaleInterface() {
     setIsProcessing(true);
 
     try {
-      const fullCustomerName = `${clientFirstName.trim()} ${clientLastName.trim()}`.trim() || 'Consumidor Final';
+      const fullCustomerName = clientFullName.trim() || 'Consumidor Final';
       const itemsSummary = cart.map((c) => `${c.variant.product.title} (${c.variant.size})`).join(', ');
       
       // Detectar qué bicicletas compró (si corresponde)
@@ -305,7 +304,7 @@ export function PointOfSaleInterface() {
       // 3. Guardar / Actualizar Cliente en la Base de Datos de Clientes
       try {
         const storedCustomers = JSON.parse(localStorage.getItem('orono_customers') || '[]');
-        const existingIdx = storedCustomers.findIndex((c: any) => c.doc === docNumber && docNumber !== '0');
+        const existingIdx = storedCustomers.findIndex((c: any) => c.doc === docNumber && docNumber !== '0' && docNumber.trim() !== '');
 
         const newPurchaseEntry = {
           date: nowStr,
@@ -317,23 +316,27 @@ export function PointOfSaleInterface() {
           total,
         };
 
+        const nameParts = fullCustomerName.split(' ');
+        const firstName = nameParts[0] || 'Cliente';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
         if (existingIdx >= 0) {
           const cust = storedCustomers[existingIdx];
           cust.purchases = [newPurchaseEntry, ...(cust.purchases || [])];
           cust.totalSpent = (cust.totalSpent || 0) + total;
           cust.phone = clientPhone || cust.phone;
           cust.email = clientEmail || cust.email;
-          cust.firstName = clientFirstName || cust.firstName;
-          cust.lastName = clientLastName || cust.lastName;
+          cust.firstName = firstName;
+          cust.lastName = lastName;
           storedCustomers[existingIdx] = cust;
         } else {
           storedCustomers.unshift({
             id: `cust-${Date.now()}`,
-            firstName: clientFirstName.trim() || 'Cliente',
-            lastName: clientLastName.trim() || 'General',
+            firstName,
+            lastName,
             phone: clientPhone,
             email: clientEmail,
-            doc: docNumber,
+            doc: docNumber || '0',
             docType,
             purchases: [newPurchaseEntry],
             totalSpent: total,
@@ -358,9 +361,10 @@ export function PointOfSaleInterface() {
       // Limpiar carro y resetear formulario
       setCart([]);
       setDiscountPercent(0);
-      setClientFirstName('Consumidor');
-      setClientLastName('Final');
-      setDocNumber('0');
+      setClientFullName('');
+      setClientPhone('');
+      setClientEmail('');
+      setDocNumber('');
     } catch (err: any) {
       alert(`Error al procesar venta POS: ${err?.message}`);
     } finally {
@@ -679,27 +683,17 @@ export function PointOfSaleInterface() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">Nombre</label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Juan"
-                    value={clientFirstName}
-                    onChange={(e) => setClientFirstName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">Apellido / Razón Social</label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Pérez"
-                    value={clientLastName}
-                    onChange={(e) => setClientLastName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium focus:outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">
+                  Nombre y Apellido / Razón Social
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. Juan Pérez / Rosario Cycling SRL (Opcional)"
+                  value={clientFullName}
+                  onChange={(e) => setClientFullName(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium focus:outline-none"
+                />
               </div>
 
               <div className="grid grid-cols-12 gap-2">

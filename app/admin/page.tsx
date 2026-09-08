@@ -275,8 +275,7 @@ export default function AdminDashboardPage() {
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({
-    firstName: '',
-    lastName: '',
+    fullName: '',
     phone: '',
     email: '',
     doc: '',
@@ -769,15 +768,19 @@ export default function AdminDashboardPage() {
   // ========================================================
   const handleAddCustomerManual = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCustomerForm.firstName.trim() || !newCustomerForm.phone.trim()) {
-      alert('Por favor completa el nombre y teléfono del cliente.');
+    if (!newCustomerForm.fullName.trim() || !newCustomerForm.phone.trim()) {
+      alert('Por favor completa el nombre/razón social y teléfono del cliente.');
       return;
     }
 
+    const nameParts = newCustomerForm.fullName.trim().split(' ');
+    const firstName = nameParts[0] || 'Cliente';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     const newCust: CustomerRecord = {
       id: `cust-${Date.now()}`,
-      firstName: newCustomerForm.firstName,
-      lastName: newCustomerForm.lastName,
+      firstName,
+      lastName,
       phone: newCustomerForm.phone,
       email: newCustomerForm.email,
       doc: newCustomerForm.doc || '0',
@@ -800,8 +803,7 @@ export default function AdminDashboardPage() {
     setCustomers([newCust, ...customers]);
     setShowAddCustomerModal(false);
     setNewCustomerForm({
-      firstName: '',
-      lastName: '',
+      fullName: '',
       phone: '',
       email: '',
       doc: '',
@@ -1997,31 +1999,18 @@ export default function AdminDashboardPage() {
                     Registrar Nuevo Cliente
                   </h3>
                   <form onSubmit={handleAddCustomerManual} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                          Nombre *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={newCustomerForm.firstName}
-                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, firstName: e.target.value })}
-                          className="w-full px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                          Apellido *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={newCustomerForm.lastName}
-                          onChange={(e) => setNewCustomerForm({ ...newCustomerForm, lastName: e.target.value })}
-                          className="w-full px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs focus:outline-none"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Nombre y Apellido / Razón Social *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. Juan Pérez / Rosario Cycling Team SRL"
+                        value={newCustomerForm.fullName}
+                        onChange={(e) => setNewCustomerForm({ ...newCustomerForm, fullName: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs focus:outline-none"
+                      />
                     </div>
 
                     <div className="grid grid-cols-12 gap-2">
