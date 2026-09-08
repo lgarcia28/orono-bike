@@ -15,7 +15,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
   const totalStock = product.variants.reduce((acc, v) => acc + v.stock, 0);
 
   const transferPrice = minPrice * 0.9; // 10% OFF
-  const installment3 = minPrice / 3;
+  const installment12 = minPrice / 12;
 
   const sizes = Array.from(new Set(product.variants.map((v) => v.size)));
 
@@ -106,7 +106,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
             </div>
             <div className="flex items-center gap-1.5 text-zinc-600 text-[11px]">
               <CreditCard className="w-3 h-3 shrink-0 text-zinc-400" />
-              <span>3 cuotas sin interés de <strong>{formatCurrency(installment3)}</strong></span>
+              <span>Hasta 12 cuotas sin interés de <strong>{formatCurrency(installment12)}</strong></span>
             </div>
           </div>
 

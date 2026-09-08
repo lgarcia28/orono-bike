@@ -1412,16 +1412,9 @@ export default function AdminDashboardPage() {
       <div className="bg-zinc-950 text-white border-b border-zinc-800 py-8 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 text-[11px] font-heading font-extrabold text-zinc-400 uppercase tracking-widest mb-1.5">
-              <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Oroño Bike • Panel de Gestión Integral</span>
-            </div>
             <h1 className="text-3xl font-heading font-black text-white tracking-tight">
               Control General del Negocio
             </h1>
-            <p className="text-xs text-zinc-400 mt-1">
-              Punto de venta & Facturación ARCA, Inventario, Recepción de compras, Base de clientes y Caja.
-            </p>
           </div>
 
           <div className="flex items-center gap-3">
