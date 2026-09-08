@@ -15,7 +15,7 @@ interface CatalogSectionProps {
 export type MainSectionType = 'TODOS' | 'BICICLETAS' | 'COMPONENTES' | 'ACCESORIOS';
 
 const BIKE_SUBCATEGORIES = ['Todas', 'MTB', 'RUTA', 'GRAVEL', 'BMX', 'PASEO', 'NIÑOS'];
-const BRANDS = ['Todas', 'SCOTT', 'VOLTA', 'RALEIGH', 'MOOVE', 'ZION', 'SARS', 'SHIMANO', 'MAXXIS', 'ROCKSHOX', 'FOX', 'GARMIN', 'KRYPTONITE'];
+const BRANDS = ['Todas', 'SCOTT', 'VOLTA', 'RALEIGH', 'SARS', 'ZION', 'SHIMANO'];
 
 export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }: CatalogSectionProps) {
   const [mainSection, setMainSection] = useState<MainSectionType>('TODOS');

@@ -52,7 +52,7 @@ const PRESET_COLORS = [
   { name: 'Violeta / Púrpura', hex: '#7e22ce' },
 ];
 
-const PRESET_BRANDS = ['SCOTT', 'VOLTA', 'RALEIGH', 'MOOVE', 'ZION', 'SARS', 'SHIMANO', 'OTRA'];
+const PRESET_BRANDS = ['SCOTT', 'VOLTA', 'RALEIGH', 'SARS', 'ZION', 'SHIMANO', 'OTRA'];
 const PRESET_CATEGORIES = ['MTB', 'RUTA', 'GRAVEL', 'BMX', 'PASEO', 'NIÑOS', 'COMPONENTES', 'ACCESORIOS', 'OTRA'];
 
 const MARGIN_PRESETS = [30, 40, 50, 70, 100];

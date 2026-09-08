@@ -146,11 +146,9 @@ export default function HomePage() {
           <span className="hover:text-zinc-950 transition-colors">SCOTT</span>
           <span className="hover:text-zinc-950 transition-colors">VOLTA</span>
           <span className="hover:text-zinc-950 transition-colors">RALEIGH</span>
-          <span className="hover:text-zinc-950 transition-colors">MOOVE</span>
-          <span className="hover:text-zinc-950 transition-colors">ZION</span>
           <span className="hover:text-zinc-950 transition-colors">SARS</span>
+          <span className="hover:text-zinc-950 transition-colors">ZION</span>
           <span className="hover:text-zinc-950 transition-colors">SHIMANO</span>
-          <span className="hover:text-zinc-950 transition-colors">Y OTROS</span>
         </div>
       </section>
 
