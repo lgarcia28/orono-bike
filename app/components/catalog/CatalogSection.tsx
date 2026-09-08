@@ -142,124 +142,120 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
       <div id="componentes" className="scroll-mt-24" />
       <div id="accesorios" className="scroll-mt-24" />
 
-      {/* Section Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-200 pb-8 mb-8">
+      {/* Section Header Simplificado y Elegante */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-zinc-200/80 pb-6 mb-8">
         <div>
-          <div className="inline-flex items-center gap-2 text-xs font-heading font-extrabold text-zinc-400 uppercase tracking-widest mb-2">
-            <Sparkles className="w-4 h-4 text-emerald-500" />
-            <span>Catálogo Oroño Bike • Rosario</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-black text-zinc-950 tracking-tight">
+          <h2 className="text-3xl sm:text-4xl font-heading font-black text-zinc-950 tracking-tight">
             {mainSection === 'BICICLETAS'
-              ? 'Bicicletas de Competición & Trail'
+              ? 'Bicicletas'
               : mainSection === 'COMPONENTES'
-              ? 'Componentes & Repuestos Oficiales'
+              ? 'Componentes'
               : mainSection === 'ACCESORIOS'
-              ? 'Accesorios, Cascos & Equipamiento'
-              : 'Catálogo de Bicicletas, Componentes & Accesorios'}
+              ? 'Accesorios'
+              : 'Catálogo'}
           </h2>
-          <p className="text-sm text-zinc-600 mt-2 max-w-xl leading-relaxed">
-            {mainSection === 'COMPONENTES'
-              ? 'Transmisiones Shimano, frenos hidráulicos, cubiertas Maxxis y horquillas de suspensión con instalación en nuestro taller.'
+          <p className="text-xs sm:text-sm text-zinc-500 mt-1 max-w-xl leading-relaxed">
+            {mainSection === 'BICICLETAS'
+              ? 'Modelos oficiales de Scott, Volta, Raleigh, Sars y Zion con armado profesional.'
+              : mainSection === 'COMPONENTES'
+              ? 'Repuestos y transmisiones originales Shimano con instalación disponible en taller.'
               : mainSection === 'ACCESORIOS'
-              ? 'Cascos Fox con protección MIPS, ciclocomputadores GPS Garmin, luces de alta potencia, candados e infladores.'
-              : 'Explora bicicletas, componentes y accesorios de alta gama con garantía oficial y stock en tiempo real.'}
+              ? 'Cascos, infladores y equipamiento esencial para tu salida.'
+              : 'Bicicletas de competición, componentes oficiales y accesorios seleccionados.'}
           </p>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative w-full md:w-88">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+        {/* Search Bar Minimalista */}
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             type="text"
-            placeholder="Buscar por modelo, marca (Scott, Shimano), SKU..."
+            placeholder="Buscar producto, marca o modelo..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all shadow-xs"
+            className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all"
           />
         </div>
       </div>
 
       {/* Tabs de Secciones Principales: TODOS, BICICLETAS, COMPONENTES, ACCESORIOS */}
-      <div className="flex flex-wrap items-center gap-2.5 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-5">
         <button
           type="button"
           onClick={() => handleSwitchSection('TODOS')}
-          className={`px-6 py-3 rounded-2xl text-xs font-heading font-black uppercase tracking-wider transition-all shadow-xs ${
+          className={`px-4 sm:px-5 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
             mainSection === 'TODOS'
-              ? 'bg-zinc-950 text-white shadow-md'
+              ? 'bg-zinc-950 text-white shadow-xs'
               : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950'
           }`}
         >
-          Todo el Catálogo ({allProducts.length})
+          Todo ({allProducts.length})
         </button>
         <button
           type="button"
           onClick={() => handleSwitchSection('BICICLETAS')}
-          className={`px-6 py-3 rounded-2xl text-xs font-heading font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-xs ${
+          className={`px-4 sm:px-5 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
             mainSection === 'BICICLETAS'
-              ? 'bg-zinc-950 text-white shadow-md'
+              ? 'bg-zinc-950 text-white shadow-xs'
               : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950'
           }`}
         >
-          <Bike className="w-4 h-4" /> Bicicletas (6)
+          <Bike className="w-3.5 h-3.5" /> Bicicletas
         </button>
         <button
           type="button"
           onClick={() => handleSwitchSection('COMPONENTES')}
-          className={`px-6 py-3 rounded-2xl text-xs font-heading font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-xs ${
+          className={`px-4 sm:px-5 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
             mainSection === 'COMPONENTES'
-              ? 'bg-zinc-950 text-white shadow-md'
+              ? 'bg-zinc-950 text-white shadow-xs'
               : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950'
           }`}
         >
-          <Wrench className="w-4 h-4" /> Componentes (6)
+          <Wrench className="w-3.5 h-3.5" /> Componentes
         </button>
         <button
           type="button"
           onClick={() => handleSwitchSection('ACCESORIOS')}
-          className={`px-6 py-3 rounded-2xl text-xs font-heading font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-xs ${
+          className={`px-4 sm:px-5 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
             mainSection === 'ACCESORIOS'
-              ? 'bg-zinc-950 text-white shadow-md'
+              ? 'bg-zinc-950 text-white shadow-xs'
               : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950'
           }`}
         >
-          <Package className="w-4 h-4" /> Accesorios & Cascos (6)
+          <Package className="w-3.5 h-3.5" /> Accesorios
         </button>
       </div>
 
       {/* Subcategorías de Bicicletas (Solo cuando estamos en Bicicletas o Todos) */}
       {(mainSection === 'BICICLETAS' || mainSection === 'TODOS') && (
-        <div className="space-y-3 mb-6 bg-zinc-50/70 p-4 rounded-2xl border border-zinc-200/80">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-400 mr-1">
-              Tipo de Bici:
-            </span>
-            {BIKE_SUBCATEGORIES.map((cat) => {
-              const isSelected = selectedBikeCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setSelectedBikeCategory(cat)}
-                  className={`whitespace-nowrap px-4 py-1.5 rounded-xl text-[11px] font-heading font-bold uppercase tracking-wider transition-all ${
-                    isSelected
-                      ? 'bg-zinc-950 text-white shadow-xs'
-                      : 'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-100 hover:text-zinc-950'
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-3 scrollbar-none">
+          <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-zinc-400 mr-1.5 shrink-0">
+            Categoría:
+          </span>
+          {BIKE_SUBCATEGORIES.map((cat) => {
+            const isSelected = selectedBikeCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedBikeCategory(cat)}
+                className={`whitespace-nowrap px-3 py-1 rounded-lg text-xs transition-all ${
+                  isSelected
+                    ? 'bg-zinc-950 text-white font-bold'
+                    : 'bg-zinc-50 text-zinc-600 border border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
         </div>
       )}
 
       {/* Brand Selector Chips */}
-      <div className="flex items-center gap-2 overflow-x-auto text-xs pb-4 mb-8">
-        <span className="text-zinc-400 font-heading font-bold text-[11px] uppercase tracking-wider mr-1 flex items-center gap-1 shrink-0">
-          <SlidersHorizontal className="w-3.5 h-3.5" /> Filtrar Marca:
+      <div className="flex items-center gap-1.5 overflow-x-auto text-xs pb-4 mb-8 scrollbar-none">
+        <span className="text-zinc-400 font-heading font-bold text-[11px] uppercase tracking-wider mr-1.5 flex items-center gap-1 shrink-0">
+          <SlidersHorizontal className="w-3 h-3" /> Marca:
         </span>
         {BRANDS.map((brand) => {
           const isSelected = selectedBrand === brand;
@@ -268,9 +264,9 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
               key={brand}
               type="button"
               onClick={() => setSelectedBrand(brand)}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-heading font-bold uppercase tracking-wider transition-all border ${
+              className={`shrink-0 px-3 py-1 rounded-lg text-xs transition-all border ${
                 isSelected
-                  ? 'border-zinc-950 bg-zinc-950 text-white shadow-xs'
+                  ? 'border-zinc-950 bg-zinc-950 text-white font-bold'
                   : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400'
               }`}
             >

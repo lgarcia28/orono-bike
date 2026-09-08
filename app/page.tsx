@@ -90,51 +90,46 @@ export default function HomePage() {
         
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
           <div className="lg:col-span-8 space-y-6">
-            <div className="inline-flex items-center gap-2 bg-zinc-900/90 border border-zinc-700/80 px-4 py-1.5 rounded-full text-xs font-heading font-bold text-zinc-200 tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>OROÑO BIKE — ROSARIO, SANTA FE</span>
-            </div>
-
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-heading font-black tracking-tight text-white leading-[1.05]">
               BICICLETAS DE ALTO RENDIMIENTO & TALLER.
             </h1>
 
-            <p className="text-zinc-200 text-sm sm:text-base max-w-2xl leading-relaxed font-bold tracking-wide uppercase">
-              Representante oficial en Rosario de: SCOTT, VOLTA, RALEIGH, MOOVE, ZION, SARS Y OTROS.
+            <p className="text-zinc-300 text-sm sm:text-base max-w-2xl leading-relaxed font-medium tracking-wide">
+              Distribuidor oficial de <strong className="text-white font-bold">SCOTT, VOLTA, RALEIGH, SARS, ZION</strong> y repuestos originales <strong className="text-white font-bold">SHIMANO</strong>.
             </p>
 
             <div className="pt-2 flex flex-wrap gap-4 items-center">
               <a
                 href="#bicicletas"
-                className="bg-white text-zinc-950 px-8 py-4 rounded-xl font-heading text-xs font-black uppercase tracking-wider hover:bg-zinc-100 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 shadow-2xl"
+                className="bg-white text-zinc-950 px-8 py-3.5 rounded-xl font-heading text-xs font-black uppercase tracking-wider hover:bg-zinc-100 transition-all flex items-center gap-2 shadow-xl"
               >
-                Ver Catálogo 2026 <ArrowRight className="w-4 h-4" />
+                Ver Catálogo <ArrowRight className="w-4 h-4" />
               </a>
               <Link
                 href="/taller"
-                className="border border-zinc-700 hover:border-white bg-zinc-900/80 text-white px-7 py-4 rounded-xl font-heading text-xs font-bold uppercase tracking-wider hover:bg-zinc-900 transition-all flex items-center gap-2"
+                className="border border-zinc-700/80 hover:border-white text-white px-7 py-3.5 rounded-xl font-heading text-xs font-bold uppercase tracking-wider hover:bg-white/5 transition-all flex items-center gap-2 backdrop-blur-xs"
               >
-                <Wrench className="w-4 h-4 text-zinc-400" /> Turnos de Taller Mecánico
+                <Wrench className="w-4 h-4 text-zinc-400" /> Turnos de Taller
               </Link>
             </div>
           </div>
 
-          {/* Banner de Beneficios Destacados (3 Tarjetas) */}
-          <div className="lg:col-span-4 flex flex-col sm:grid sm:grid-cols-3 lg:flex lg:flex-col gap-3.5 text-left">
-            <div className="bg-zinc-900/90 border border-zinc-800 p-5 rounded-2xl">
-              <CreditCard className="w-6 h-6 text-amber-400 mb-2" />
-              <span className="font-heading font-black text-lg text-white block">3 Y 6 CUOTAS</span>
-              <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">Sin Interés</span>
+          {/* Banner de Beneficios Simplificado y Elegante */}
+          <div className="lg:col-span-4 flex flex-col sm:grid sm:grid-cols-3 lg:flex lg:flex-col gap-3 text-left">
+            <div className="bg-zinc-950/70 border border-white/10 backdrop-blur-md p-5 rounded-2xl hover:border-white/20 transition-colors">
+              <CreditCard className="w-5 h-5 text-amber-400 mb-2" />
+              <span className="font-heading font-black text-base text-white block">3 Y 6 CUOTAS</span>
+              <span className="text-[11px] text-zinc-400 font-medium">Sin interés con todas las tarjetas</span>
             </div>
-            <div className="bg-zinc-900/90 border border-zinc-800 p-5 rounded-2xl">
-              <Zap className="w-6 h-6 text-emerald-400 mb-2" />
-              <span className="font-heading font-black text-lg text-white block">10% OFF</span>
-              <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">Transferencia</span>
+            <div className="bg-zinc-950/70 border border-white/10 backdrop-blur-md p-5 rounded-2xl hover:border-white/20 transition-colors">
+              <Zap className="w-5 h-5 text-emerald-400 mb-2" />
+              <span className="font-heading font-black text-base text-white block">10% OFF</span>
+              <span className="text-[11px] text-zinc-400 font-medium">Abonando por transferencia bancaria</span>
             </div>
-            <div className="bg-zinc-900/90 border border-zinc-800 p-5 rounded-2xl">
-              <Truck className="w-6 h-6 text-sky-400 mb-2" />
-              <span className="font-heading font-black text-lg text-white block">ENVÍOS</span>
-              <span className="text-[11px] text-zinc-400 font-heading uppercase tracking-wider">A todo el país</span>
+            <div className="bg-zinc-950/70 border border-white/10 backdrop-blur-md p-5 rounded-2xl hover:border-white/20 transition-colors">
+              <Truck className="w-5 h-5 text-sky-400 mb-2" />
+              <span className="font-heading font-black text-base text-white block">ENVÍOS</span>
+              <span className="text-[11px] text-zinc-400 font-medium">Asegurados a todo el país</span>
             </div>
           </div>
         </div>
@@ -171,7 +166,7 @@ export default function HomePage() {
               Taller Mecánico Especializado en Bv. Oroño
             </h2>
             <p className="text-zinc-600 text-sm leading-relaxed">
-              Mantenimiento integral de suspensiones, purga y cambio de fluidos hidráulicos, calibraciones y revisiones, etc.
+              Mantenimiento integral de transmisiones, purga de frenos hidráulicos, calibración y service general con repuestos oficiales.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2 text-xs">
