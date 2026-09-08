@@ -122,13 +122,13 @@ export function PointOfSaleInterface() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'pos_debit' | 'pos_credit' | 'transfer'>('cash');
   const [billingType, setBillingType] = useState<'FACTURA_B' | 'FACTURA_A' | 'TICKET_LOCAL'>('FACTURA_B');
   
-  // Datos del Cliente
-  const [clientFirstName, setClientFirstName] = useState('Consumidor');
-  const [clientLastName, setClientLastName] = useState('Final');
-  const [clientPhone, setClientPhone] = useState('5493410000000');
-  const [clientEmail, setClientEmail] = useState('pos@oronobike.com.ar');
+  // Datos del Cliente (Si se dejan vacíos, se emite automáticamente a Consumidor Final)
+  const [clientFirstName, setClientFirstName] = useState('');
+  const [clientLastName, setClientLastName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
   const [docType, setDocType] = useState<'DNI' | 'CUIT'>('DNI');
-  const [docNumber, setDocNumber] = useState('0');
+  const [docNumber, setDocNumber] = useState('');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
 
   // Status & Modal de Factura Emitida
@@ -670,29 +670,41 @@ export function PointOfSaleInterface() {
 
             {/* Formulario Integrado de Datos del Cliente */}
             <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-200 mb-3 space-y-2">
-              <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-600 flex items-center gap-1">
-                <User className="w-3 h-3 text-zinc-800" /> Datos del Cliente (Registro en Base de Datos)
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1">
+                  <User className="w-3 h-3 text-zinc-900" /> Datos del Cliente
+                </span>
+                <span className="text-[9px] text-zinc-400 font-bold">
+                  (Opcional • Por defecto Consumidor Final)
+                </span>
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="Nombre *"
-                  value={clientFirstName}
-                  onChange={(e) => setClientFirstName(e.target.value)}
-                  className="px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium focus:outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Apellido *"
-                  value={clientLastName}
-                  onChange={(e) => setClientLastName(e.target.value)}
-                  className="px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium focus:outline-none"
-                />
+                <div>
+                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">Nombre</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Juan"
+                    value={clientFirstName}
+                    onChange={(e) => setClientFirstName(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">Apellido / Razón Social</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. Pérez"
+                    value={clientLastName}
+                    onChange={(e) => setClientLastName(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-12 gap-2">
                 <div className="col-span-4">
+                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">Tipo Doc.</label>
                   <select
                     value={docType}
                     onChange={(e) => setDocType(e.target.value as any)}
@@ -703,9 +715,10 @@ export function PointOfSaleInterface() {
                   </select>
                 </div>
                 <div className="col-span-8">
+                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">N° Documento / CUIT</label>
                   <input
                     type="text"
-                    placeholder="N° Documento / CUIT *"
+                    placeholder="Ej. 38450112 / 30-..."
                     value={docNumber}
                     onChange={(e) => setDocNumber(e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-mono font-bold focus:outline-none"
@@ -714,20 +727,26 @@ export function PointOfSaleInterface() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="tel"
-                  placeholder="WhatsApp / Teléfono *"
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
-                  className="px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-mono focus:outline-none"
-                />
-                <input
-                  type="email"
-                  placeholder="Email del cliente"
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  className="px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs focus:outline-none"
-                />
+                <div>
+                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">WhatsApp / Teléfono</label>
+                  <input
+                    type="tel"
+                    placeholder="Ej. 549341555..."
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-mono focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">Email</label>
+                  <input
+                    type="email"
+                    placeholder="cliente@email.com"
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
           </div>

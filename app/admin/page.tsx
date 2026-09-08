@@ -1054,7 +1054,7 @@ export default function AdminDashboardPage() {
               activeTab === 'inventario' ? 'border-white text-white' : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Package className="w-4 h-4" /> Inventario & Precios
+            <Package className="w-4 h-4" /> Inventario
           </button>
           <button
             onClick={() => setActiveTab('recepcion')}
@@ -1086,7 +1086,7 @@ export default function AdminDashboardPage() {
               activeTab === 'taller' ? 'border-white text-white' : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
           >
-            <Wrench className="w-4 h-4" /> Taller & Servicios
+            <Wrench className="w-4 h-4" /> Taller
           </button>
         </div>
       </div>
