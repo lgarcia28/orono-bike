@@ -106,7 +106,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
             </div>
             <div className="flex items-center gap-1.5 text-zinc-600 text-[11px]">
               <CreditCard className="w-3 h-3 shrink-0 text-zinc-400" />
-              <span>Hasta 12 cuotas sin interés de <strong>{formatCurrency(installment12)}</strong></span>
+              <span>Hasta 12 cuotas de <strong>{formatCurrency(installment12)}</strong></span>
             </div>
           </div>
 

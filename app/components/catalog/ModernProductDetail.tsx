@@ -234,7 +234,7 @@ export function ModernProductDetail({ product, onBack, onAddToCart }: ModernProd
               </div>
               <div className="flex items-center justify-between text-zinc-700 bg-white p-2.5 rounded-lg border border-zinc-200 font-medium">
                 <span className="flex items-center gap-1.5">
-                  <CreditCard className="w-4 h-4 text-zinc-500" /> Hasta 12 cuotas sin interés de:
+                  <CreditCard className="w-4 h-4 text-zinc-500" /> Hasta 12 cuotas de:
                 </span>
                 <span className="font-heading font-bold text-zinc-950">{formatCurrency(installment12)}</span>
               </div>

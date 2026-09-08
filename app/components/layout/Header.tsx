@@ -51,7 +51,7 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
           </div>
           <div className="flex items-center gap-4 text-zinc-300 font-bold">
             <span className="flex items-center gap-1 text-amber-400">
-              <CreditCard className="w-3 h-3" /> HASTA 12 CUOTAS SIN INTERÉS
+              <CreditCard className="w-3 h-3" /> HASTA 12 CUOTAS
             </span>
             <span className="hidden md:inline text-zinc-600">•</span>
             <a

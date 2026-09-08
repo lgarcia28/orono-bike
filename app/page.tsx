@@ -119,7 +119,7 @@ export default function HomePage() {
             <div className="bg-zinc-950/70 border border-white/10 backdrop-blur-md p-5 rounded-2xl hover:border-white/20 transition-colors">
               <CreditCard className="w-5 h-5 text-amber-400 mb-2" />
               <span className="font-heading font-black text-base text-white block">HASTA 12 CUOTAS</span>
-              <span className="text-[11px] text-zinc-400 font-medium">Sin interés con todas las tarjetas</span>
+              <span className="text-[11px] text-zinc-400 font-medium">Con todas las tarjetas</span>
             </div>
             <div className="bg-zinc-950/70 border border-white/10 backdrop-blur-md p-5 rounded-2xl hover:border-white/20 transition-colors">
               <Zap className="w-5 h-5 text-emerald-400 mb-2" />
@@ -239,7 +239,7 @@ export default function HomePage() {
           <div>
             <h4 className="text-white font-heading font-bold uppercase tracking-wider mb-4 text-xs">Medios de Pago & Envíos</h4>
             <p className="text-zinc-400 leading-relaxed">
-              Tarjetas de Crédito con hasta 12 Cuotas Sin Interés, Transferencia Bancaria (10% OFF), Efectivo y Débito. Envíos asegurados a todo el país.
+              Tarjetas de Crédito con hasta 12 Cuotas, Transferencia Bancaria (10% OFF), Efectivo y Débito. Envíos asegurados a todo el país.
             </p>
           </div>
           <div>
