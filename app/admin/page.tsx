@@ -373,39 +373,68 @@ export default function AdminDashboardPage() {
     price: 0,
   });
 
-  // Estado de Turnos de Taller
-  const [workshopTickets, setWorkshopTickets] = useState([
-    {
-      id: 'SER-101',
-      client: 'Martín Rossi',
-      phone: '5493415551234',
-      bike: 'Scott Spark RC (2024)',
-      serviceType: 'Service General & Puesta a Punto',
-      status: 'En Taller',
-      date: '2026-09-02',
-      price: 45000,
-    },
-    {
-      id: 'SER-102',
-      client: 'Camila Benítez',
-      phone: '5493415555678',
-      bike: 'Volta Radix 29',
-      serviceType: 'Calibración de Transmisión',
-      status: 'Listo para Retiro',
-      date: '2026-09-01',
-      price: 22000,
-    },
-    {
-      id: 'SER-103',
-      client: 'Federico Gómez',
-      phone: '5493415559012',
-      bike: 'Sars Pro Race',
-      serviceType: 'Purga de Frenos Hidráulicos',
-      status: 'Pendiente',
-      date: '2026-09-03',
-      price: 28000,
-    },
-  ]);
+  // Estado de Turnos de Taller con Persistencia
+  const [workshopTickets, setWorkshopTickets] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('orono_workshop_tickets');
+        if (stored) return JSON.parse(stored);
+      } catch (e) {}
+    }
+    return [
+      {
+        id: 'SER-101',
+        client: 'Martín Rossi',
+        phone: '5493415551234',
+        bike: 'Scott Spark RC (2024)',
+        serviceType: 'Service General & Puesta a Punto',
+        status: 'En Taller',
+        date: '2026-09-07',
+        price: 45000,
+        notes: 'Ajuste de amortiguador y cambios',
+      },
+      {
+        id: 'SER-102',
+        client: 'Camila Benítez',
+        phone: '5493415555678',
+        bike: 'Volta Radix 29',
+        serviceType: 'Calibración de Transmisión',
+        status: 'Listo para Retiro',
+        date: '2026-09-06',
+        price: 22000,
+        notes: 'Lubricación y regulación de pata',
+      },
+      {
+        id: 'SER-103',
+        client: 'Federico Gómez',
+        phone: '5493415559012',
+        bike: 'Sars Pro Race',
+        serviceType: 'Purga de Frenos Hidráulicos',
+        status: 'Pendiente',
+        date: '2026-09-08',
+        price: 28000,
+        notes: 'Cambio de líquido mineral Shimano',
+      },
+    ];
+  });
+
+  const [showNewTicketModal, setShowNewTicketModal] = useState(false);
+  const [newTicketForm, setNewTicketForm] = useState({
+    client: '',
+    phone: '',
+    bike: '',
+    serviceType: 'Service General & Puesta a Punto',
+    date: new Date().toISOString().slice(0, 10),
+    price: 45000,
+    status: 'En Taller',
+    notes: '',
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('orono_workshop_tickets', JSON.stringify(workshopTickets));
+    } catch (e) {}
+  }, [workshopTickets]);
 
   // Estado de Cierre de Caja
   const [cashMovements, setCashMovements] = useState<CashMovement[]>([
@@ -2231,24 +2260,30 @@ export default function AdminDashboardPage() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 7: TALLER & SERVICIOS                                 */}
+        {/* TAB 7: TALLER                                             */}
         {/* ========================================================= */}
         {activeTab === 'taller' && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <h2 className="text-xl font-heading font-black text-zinc-950 flex items-center gap-2">
                   <Wrench className="w-5 h-5 text-zinc-950" /> Taller Mecánico Especializado
                 </h2>
                 <p className="text-xs text-zinc-500 mt-0.5">
-                  Administra los turnos de reparación y configura los servicios, tiempos de entrega y precios oficiales.
+                  Administra los ingresos de bicicletas en reparación, seguimiento de turnos y tarifas oficiales.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowNewTicketModal(true)}
+                  className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+                >
+                  <Plus className="w-4 h-4" /> + Ingresar Bici al Taller
+                </button>
                 <button
                   onClick={() => setWorkshopSubTab('turnos')}
-                  className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
+                  className={`px-4 py-2.5 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
                     workshopSubTab === 'turnos' ? 'bg-zinc-950 text-white shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                   }`}
                 >
@@ -2256,7 +2291,7 @@ export default function AdminDashboardPage() {
                 </button>
                 <button
                   onClick={() => setWorkshopSubTab('servicios')}
-                  className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all flex items-center gap-1.5 ${
+                  className={`px-4 py-2.5 rounded-xl text-xs font-heading font-bold uppercase transition-all flex items-center gap-1.5 ${
                     workshopSubTab === 'servicios' ? 'bg-zinc-950 text-white shadow-xs' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                   }`}
                 >
@@ -2264,6 +2299,199 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </div>
+
+            {/* Modal para Ingresar Bicicleta al Taller */}
+            {showNewTicketModal && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-zinc-200 animate-fadeIn">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Bike className="w-5 h-5 text-zinc-950" />
+                    <h3 className="text-xl font-heading font-black text-zinc-950">
+                      Ingresar Bicicleta al Taller
+                    </h3>
+                  </div>
+                  <p className="text-xs text-zinc-500 mb-6">
+                    Registra la recepción física de una bicicleta para su diagnóstico y service.
+                  </p>
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!newTicketForm.client.trim() || !newTicketForm.bike.trim()) {
+                        alert('Por favor completa el nombre del cliente y el modelo de bicicleta.');
+                        return;
+                      }
+                      const nextNum = Math.floor(104 + Math.random() * 890);
+                      const newTicket = {
+                        id: `SER-${nextNum}`,
+                        client: newTicketForm.client,
+                        phone: newTicketForm.phone || '5493410000000',
+                        bike: newTicketForm.bike,
+                        serviceType: newTicketForm.serviceType,
+                        status: newTicketForm.status,
+                        date: newTicketForm.date || new Date().toISOString().slice(0, 10),
+                        price: newTicketForm.price || 0,
+                        notes: newTicketForm.notes,
+                      };
+                      setWorkshopTickets([newTicket, ...workshopTickets]);
+                      setShowNewTicketModal(false);
+                      setNewTicketForm({
+                        client: '',
+                        phone: '',
+                        bike: '',
+                        serviceType: 'Service General & Puesta a Punto',
+                        date: new Date().toISOString().slice(0, 10),
+                        price: 45000,
+                        status: 'En Taller',
+                        notes: '',
+                      });
+                    }}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Nombre y Apellido del Cliente *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. Juan Pérez"
+                        value={newTicketForm.client}
+                        onChange={(e) => setNewTicketForm({ ...newTicketForm, client: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                          WhatsApp / Teléfono *
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="5493415551234"
+                          value={newTicketForm.phone}
+                          onChange={(e) => setNewTicketForm({ ...newTicketForm, phone: e.target.value })}
+                          className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Día de Ingreso *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={newTicketForm.date}
+                          onChange={(e) => setNewTicketForm({ ...newTicketForm, date: e.target.value })}
+                          className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono font-bold focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Bicicleta (Marca y Modelo) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. Scott Spark RC / Volta Radix 29 / Raleigh Mojave"
+                        value={newTicketForm.bike}
+                        onChange={(e) => setNewTicketForm({ ...newTicketForm, bike: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Servicio a Realizar *
+                        </label>
+                        <select
+                          value={newTicketForm.serviceType}
+                          onChange={(e) => {
+                            const selected = e.target.value;
+                            const found = workshopServices.find((s) => s.title === selected);
+                            setNewTicketForm({
+                              ...newTicketForm,
+                              serviceType: selected,
+                              price: found?.price || newTicketForm.price,
+                            });
+                          }}
+                          className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold focus:outline-none"
+                        >
+                          {workshopServices.map((s) => (
+                            <option key={s.id} value={s.title}>
+                              {s.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Costo Estimado ($ ARS) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          value={newTicketForm.price || ''}
+                          onChange={(e) => setNewTicketForm({ ...newTicketForm, price: Number(e.target.value) })}
+                          className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono font-bold focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Estado Inicial
+                      </label>
+                      <select
+                        value={newTicketForm.status}
+                        onChange={(e) => setNewTicketForm({ ...newTicketForm, status: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold focus:outline-none"
+                      >
+                        <option value="En Taller">En Taller (En Proceso)</option>
+                        <option value="Pendiente">Pendiente (A la Espera)</option>
+                        <option value="Listo para Retiro">Listo para Retiro</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Diagnóstico / Observaciones
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Ej. Centrado de rueda trasera, purga de frenos y cambio de cadena..."
+                        value={newTicketForm.notes}
+                        onChange={(e) => setNewTicketForm({ ...newTicketForm, notes: e.target.value })}
+                        className="w-full px-3.5 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowNewTicketModal(false)}
+                        className="px-5 py-2.5 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="bg-zinc-950 text-white px-6 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-md"
+                      >
+                        Ingresar al Taller
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
 
             {workshopSubTab === 'servicios' && (
               <div className="space-y-6 animate-fadeIn">
@@ -2360,6 +2588,7 @@ export default function AdminDashboardPage() {
                       <div className="p-3 bg-zinc-50 rounded-2xl space-y-1 text-xs text-zinc-600 mb-4">
                         <div><strong>Cliente:</strong> {t.client}</div>
                         <div><strong>Fecha de Turno:</strong> {t.date}</div>
+                        {t.notes && <div className="text-zinc-500 italic">"{t.notes}"</div>}
                         <div className="text-zinc-950 font-mono font-bold pt-1">
                           Costo Estimado: {formatCurrency(t.price)}
                         </div>
