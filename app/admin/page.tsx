@@ -325,25 +325,37 @@ export default function AdminDashboardPage() {
     ];
   });
 
-  const [showNewReceptionModal, setShowNewReceptionModal] = useState(false);
-  const [receptionForm, setReceptionForm] = useState<{
-    supplierId: string;
-    invoiceNumber: string;
-    paymentMethod: 'Efectivo' | 'Transferencia' | 'Crédito' | 'Débito';
+  interface ReceptionItemDraft {
+    id: string;
     productId: string;
     variantId: string;
     quantity: number;
     unitCost: number;
+  }
+
+  const [showNewReceptionModal, setShowNewReceptionModal] = useState(false);
+  const [receptionForm, setReceptionForm] = useState<{
+    supplierId: string;
+    invoiceNumber: string;
+    date: string;
+    paymentMethod: 'Efectivo' | 'Transferencia' | 'Crédito' | 'Débito';
     notes: string;
+    items: ReceptionItemDraft[];
   }>({
     supplierId: 'sup-01',
     invoiceNumber: '',
+    date: new Date().toISOString().slice(0, 10),
     paymentMethod: 'Transferencia',
-    productId: 'prod-01',
-    variantId: 'var-01-m',
-    quantity: 1,
-    unitCost: 5800000,
     notes: '',
+    items: [
+      {
+        id: 'row-1',
+        productId: 'prod-01',
+        variantId: 'var-01-m',
+        quantity: 1,
+        unitCost: 5800000,
+      },
+    ],
   });
 
   const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
@@ -675,68 +687,158 @@ export default function AdminDashboardPage() {
   };
 
   // ========================================================
-  // RECEPCIÓN DE MERCADERÍA & FACTURAS DE COMPRA (PROVEEDORES)
+  // RECEPCIÓN DE MERCADERÍA & FACTURAS DE COMPRA (PLANILLA)
   // ========================================================
+  const openNewReceptionModal = () => {
+    const firstProd = products[0];
+    const firstVar = firstProd?.variants[0];
+    setReceptionForm({
+      supplierId: suppliers[0]?.id || 'sup-01',
+      invoiceNumber: '',
+      date: new Date().toISOString().slice(0, 10),
+      paymentMethod: 'Transferencia',
+      notes: '',
+      items: [
+        {
+          id: `row-${Date.now()}-1`,
+          productId: firstProd?.id || '',
+          variantId: firstVar?.id || '',
+          quantity: 1,
+          unitCost: firstVar?.cost || Math.round((firstVar?.price || 0) / 1.5),
+        },
+      ],
+    });
+    setShowNewReceptionModal(true);
+  };
+
+  const handleAddReceptionRow = () => {
+    const firstProd = products[0];
+    const firstVar = firstProd?.variants[0];
+    const newRow: ReceptionItemDraft = {
+      id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      productId: firstProd?.id || '',
+      variantId: firstVar?.id || '',
+      quantity: 1,
+      unitCost: firstVar?.cost || Math.round((firstVar?.price || 0) / 1.5),
+    };
+    setReceptionForm((prev) => ({
+      ...prev,
+      items: [...prev.items, newRow],
+    }));
+  };
+
+  const handleUpdateReceptionRow = (rowId: string, fields: Partial<ReceptionItemDraft>) => {
+    setReceptionForm((prev) => ({
+      ...prev,
+      items: prev.items.map((it) => {
+        if (it.id !== rowId) return it;
+        const updated = { ...it, ...fields };
+        // Si cambió el producto, asignar su primera variante y costo sugerido
+        if (fields.productId && fields.productId !== it.productId) {
+          const prod = products.find((p) => p.id === fields.productId);
+          const fVar = prod?.variants[0];
+          updated.variantId = fVar?.id || '';
+          updated.unitCost = fVar?.cost || Math.round((fVar?.price || 0) / 1.5);
+        } else if (fields.variantId && fields.variantId !== it.variantId) {
+          // Si cambió la variante, sugerir el costo de esa variante
+          const prod = products.find((p) => p.id === it.productId);
+          const v = prod?.variants.find((itemVar) => itemVar.id === fields.variantId);
+          if (v) {
+            updated.unitCost = v.cost || Math.round(v.price / 1.5);
+          }
+        }
+        return updated;
+      }),
+    }));
+  };
+
+  const handleRemoveReceptionRow = (rowId: string) => {
+    if (receptionForm.items.length <= 1) {
+      alert('La planilla de la factura debe tener al menos un artículo.');
+      return;
+    }
+    setReceptionForm((prev) => ({
+      ...prev,
+      items: prev.items.filter((it) => it.id !== rowId),
+    }));
+  };
+
   const handleSaveReception = (e: React.FormEvent) => {
     e.preventDefault();
-    const supplier = suppliers.find((s) => s.id === receptionForm.supplierId) || suppliers[0];
-    const selectedProd = products.find((p) => p.id === receptionForm.productId) || products[0];
-    const selectedVar = selectedProd.variants.find((v) => v.id === receptionForm.variantId) || selectedProd.variants[0];
+    if (receptionForm.items.length === 0) {
+      alert('Debes ingresar al menos un artículo en la planilla.');
+      return;
+    }
 
-    const qty = Math.max(1, receptionForm.quantity);
-    const unitCost = Math.max(0, receptionForm.unitCost);
-    const subtotal = qty * unitCost;
-    const nowStr = new Date().toLocaleString();
+    const supplier = suppliers.find((s) => s.id === receptionForm.supplierId) || suppliers[0];
+    const nowStr = `${receptionForm.date} ${new Date().toLocaleTimeString().slice(0, 5)}`;
+
+    // Armar items recibidos con datos completos
+    const parsedItems = receptionForm.items.map((row) => {
+      const selectedProd = products.find((p) => p.id === row.productId) || products[0];
+      const selectedVar = selectedProd.variants.find((v) => v.id === row.variantId) || selectedProd.variants[0];
+      const qty = Math.max(1, Number(row.quantity) || 1);
+      const unitCost = Math.max(0, Number(row.unitCost) || 0);
+      const subtotal = qty * unitCost;
+
+      return {
+        productId: selectedProd.id,
+        productTitle: selectedProd.title,
+        variantId: selectedVar.id,
+        variantDetails: `${selectedVar.size} (${selectedVar.color})`,
+        quantity: qty,
+        unitCost,
+        subtotal,
+      };
+    });
+
+    const totalInvoiceAmount = parsedItems.reduce((acc, it) => acc + it.subtotal, 0);
+    const totalUnits = parsedItems.reduce((acc, it) => acc + it.quantity, 0);
 
     const newReception: ReceptionRecord = {
       id: `REC-${Date.now().toString().slice(-4)}`,
       supplierId: supplier.id,
       supplierName: supplier.name,
-      invoiceNumber: receptionForm.invoiceNumber || `FC-INT-${Date.now().toString().slice(-6)}`,
+      invoiceNumber: receptionForm.invoiceNumber.trim() || `FC-INT-${Date.now().toString().slice(-6)}`,
       date: nowStr,
       paymentMethod: receptionForm.paymentMethod,
-      items: [
-        {
-          productId: selectedProd.id,
-          productTitle: selectedProd.title,
-          variantId: selectedVar.id,
-          variantDetails: `${selectedVar.size} (${selectedVar.color})`,
-          quantity: qty,
-          unitCost,
-          subtotal,
-        },
-      ],
-      totalAmount: subtotal,
+      items: parsedItems,
+      totalAmount: totalInvoiceAmount,
       notes: receptionForm.notes,
     };
 
     // 1. Guardar Recepción
-    setReceptions([newReception, ...receptions]);
+    const updatedReceptions = [newReception, ...receptions];
+    setReceptions(updatedReceptions);
+    try {
+      localStorage.setItem('orono_receptions', JSON.stringify(updatedReceptions));
+    } catch (e) {}
 
-    // 2. ACTUALIZAR STOCK FÍSICO AUTOMÁTICAMENTE en el inventario
+    // 2. ACTUALIZAR STOCK FÍSICO Y COSTOS en el inventario para todos los artículos
     setProducts((prev) => {
       const updated = prev.map((p) => {
-        if (p.id === selectedProd.id) {
-          return {
-            ...p,
-            variants: p.variants.map((v) => {
-              if (v.id === selectedVar.id) {
-                const newStock = (v.stock || 0) + qty;
-                const newCost = unitCost > 0 ? unitCost : (v.cost ?? Math.round(v.price / 1.5));
-                const margin = v.profit_margin_percent ?? 50;
-                const newPrice = Math.round(newCost * (1 + margin / 100));
-                return {
-                  ...v,
-                  stock: newStock,
-                  cost: newCost,
-                  price: newPrice,
-                };
-              }
-              return v;
-            }),
-          };
-        }
-        return p;
+        const matchingItems = parsedItems.filter((it) => it.productId === p.id);
+        if (matchingItems.length === 0) return p;
+
+        return {
+          ...p,
+          variants: p.variants.map((v) => {
+            const itemMatch = matchingItems.find((it) => it.variantId === v.id);
+            if (itemMatch) {
+              const newStock = (v.stock || 0) + itemMatch.quantity;
+              const newCost = itemMatch.unitCost > 0 ? itemMatch.unitCost : (v.cost ?? Math.round(v.price / 1.5));
+              const margin = v.profit_margin_percent ?? 50;
+              const newPrice = Math.round(newCost * (1 + margin / 100));
+              return {
+                ...v,
+                stock: newStock,
+                cost: newCost,
+                price: newPrice,
+              };
+            }
+            return v;
+          }),
+        };
       });
       try {
         localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
@@ -749,20 +851,32 @@ export default function AdminDashboardPage() {
       id: `MOV-EGR-${Date.now().toString().slice(-4)}`,
       time: new Date().toLocaleTimeString().slice(0, 5),
       type: 'egreso',
-      concept: `Compra Proveedor: ${supplier.name} (${newReception.invoiceNumber})`,
+      concept: `Compra Proveedor: ${supplier.name} (${newReception.invoiceNumber}) - ${parsedItems.length} art. (+${totalUnits} u.)`,
       category: 'Compra de Mercadería / Stock',
       paymentMethod: receptionForm.paymentMethod,
-      amount: subtotal,
+      amount: totalInvoiceAmount,
     };
-    setCashMovements([newCashOutflow, ...cashMovements]);
+    const updatedCash = [newCashOutflow, ...cashMovements];
+    setCashMovements(updatedCash);
+    try {
+      localStorage.setItem('orono_cash_movements', JSON.stringify(updatedCash));
+    } catch (e) {}
 
     // 4. ACTUALIZAR TOTAL COMPRADO AL PROVEEDOR
-    setSuppliers((prev) =>
-      prev.map((s) => (s.id === supplier.id ? { ...s, totalPurchased: s.totalPurchased + subtotal } : s))
-    );
+    setSuppliers((prev) => {
+      const updatedSup = prev.map((s) =>
+        s.id === supplier.id ? { ...s, totalPurchased: s.totalPurchased + totalInvoiceAmount } : s
+      );
+      try {
+        localStorage.setItem('orono_suppliers', JSON.stringify(updatedSup));
+      } catch (e) {}
+      return updatedSup;
+    });
 
     setShowNewReceptionModal(false);
-    alert(`¡Mercadería ingresada exitosamente!\n• Se sumaron +${qty} unidades a "${selectedProd.title}".\n• Se registró un egreso de ${formatCurrency(subtotal)} en la caja.`);
+    alert(
+      `¡Factura de compra registrada con éxito!\n• ${parsedItems.length} artículos ingresados (+${totalUnits} unidades sumadas al stock).\n• Se registró un egreso de ${formatCurrency(totalInvoiceAmount)} en la caja.`
+    );
   };
 
   const handleAddSupplier = (e: React.FormEvent) => {
@@ -1547,7 +1661,7 @@ export default function AdminDashboardPage() {
                   <Building2 className="w-3.5 h-3.5 inline mr-1" /> + Nuevo Proveedor
                 </button>
                 <button
-                  onClick={() => setShowNewReceptionModal(true)}
+                  onClick={openNewReceptionModal}
                   className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
                 >
                   <Plus className="w-4 h-4" /> Registrar Factura de Compra
@@ -1672,146 +1786,304 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Modal para Registrar Factura de Compra & Sumar Stock */}
+            {/* Modal para Registrar Factura de Compra en Planilla (Multi-artículo) */}
             {showNewReceptionModal && (
-              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-                <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-zinc-200 animate-fadeIn">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Truck className="w-5 h-5 text-zinc-950" />
-                    <h3 className="text-xl font-heading font-black text-zinc-950">
-                      Registrar Factura de Compra
-                    </h3>
-                  </div>
-                  <p className="text-xs text-zinc-500 mb-6">
-                    Al guardar, las unidades se <strong>sumarán al stock</strong> y el monto se registrará como <strong>egreso de caja</strong>.
-                  </p>
-
-                  <form onSubmit={handleSaveReception} className="space-y-4">
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                <div className="bg-white rounded-3xl p-5 sm:p-8 max-w-5xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto max-h-[94vh] flex flex-col">
+                  {/* Modal Header */}
+                  <div className="flex items-start justify-between pb-4 border-b border-zinc-200">
                     <div>
-                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                        Proveedor *
-                      </label>
-                      <select
-                        value={receptionForm.supplierId}
-                        onChange={(e) => setReceptionForm({ ...receptionForm, supplierId: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none"
-                      >
-                        {suppliers.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} (CUIT: {s.cuit})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center">
+                          <Truck className="w-4 h-4" />
+                        </div>
+                        <h3 className="text-xl font-heading font-black text-zinc-950 tracking-tight">
+                          Planilla de Carga de Factura de Compra
+                        </h3>
+                      </div>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Ingresá los artículos de la factura tipo planilla: las cantidades <strong>se sumarán al stock físico</strong> y el total generará un <strong>egreso financiero</strong> en caja.
+                      </p>
                     </div>
+                    <button
+                      onClick={() => setShowNewReceptionModal(false)}
+                      className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-xl hover:bg-zinc-100 transition-colors"
+                      title="Cerrar"
+                    >
+                      <span className="text-lg font-bold">✕</span>
+                    </button>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                  <form onSubmit={handleSaveReception} className="flex flex-col flex-1 overflow-hidden pt-4 gap-4">
+                    <div className="overflow-y-auto pr-1 space-y-4 flex-1">
+                      {/* Cabecera de la Factura */}
+                      <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                            Proveedor *
+                          </label>
+                          <select
+                            value={receptionForm.supplierId}
+                            onChange={(e) => setReceptionForm({ ...receptionForm, supplierId: e.target.value })}
+                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          >
+                            {suppliers.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} (CUIT: {s.cuit})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                            N° Factura / Remito *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="FC-0002-00049281"
+                            value={receptionForm.invoiceNumber}
+                            onChange={(e) => setReceptionForm({ ...receptionForm, invoiceNumber: e.target.value })}
+                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                            Fecha Factura *
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={receptionForm.date}
+                            onChange={(e) => setReceptionForm({ ...receptionForm, date: e.target.value })}
+                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                            Medio de Pago *
+                          </label>
+                          <select
+                            value={receptionForm.paymentMethod}
+                            onChange={(e) => setReceptionForm({ ...receptionForm, paymentMethod: e.target.value as any })}
+                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          >
+                            <option value="Transferencia">Transferencia Bancaria</option>
+                            <option value="Efectivo">Efectivo Caja</option>
+                            <option value="Crédito">Crédito / Cuenta Corriente</option>
+                            <option value="Débito">Débito</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Planilla de Artículos (Spreadsheet) */}
+                      <div className="border border-zinc-200 rounded-2xl overflow-hidden shadow-xs">
+                        <div className="bg-zinc-100/90 px-4 py-2.5 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-zinc-800" />
+                            <span className="font-heading font-bold text-xs uppercase tracking-wider text-zinc-900">
+                              Planilla de Artículos Recibidos
+                            </span>
+                            <span className="bg-white border border-zinc-300 text-zinc-700 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
+                              {receptionForm.items.length} {receptionForm.items.length === 1 ? 'artículo' : 'artículos'}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleAddReceptionRow}
+                            className="bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-heading font-bold uppercase px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Agregar Artículo
+                          </button>
+                        </div>
+
+                        <div className="overflow-x-auto max-h-[380px] bg-white">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-heading font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
+                              <tr>
+                                <th className="py-2.5 px-3 text-center w-10">#</th>
+                                <th className="py-2.5 px-3 min-w-[280px]">Artículo / Producto</th>
+                                <th className="py-2.5 px-3 min-w-[180px]">Talle / Variante</th>
+                                <th className="py-2.5 px-3 text-center w-24">Stock Actual</th>
+                                <th className="py-2.5 px-3 text-center w-28">Cant. a Ingresar</th>
+                                <th className="py-2.5 px-3 text-right min-w-[140px]">Costo Unit. ($ ARS)</th>
+                                <th className="py-2.5 px-3 text-right min-w-[140px]">Subtotal ($ ARS)</th>
+                                <th className="py-2.5 px-3 text-center w-12"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-200">
+                              {receptionForm.items.map((row, index) => {
+                                const currentProduct = products.find((p) => p.id === row.productId) || products[0];
+                                const currentVariant =
+                                  currentProduct?.variants.find((v) => v.id === row.variantId) || currentProduct?.variants[0];
+                                const rowSubtotal = (Number(row.quantity) || 0) * (Number(row.unitCost) || 0);
+
+                                return (
+                                  <tr key={row.id} className="hover:bg-zinc-50/80 transition-colors">
+                                    <td className="py-2.5 px-3 font-mono text-xs font-bold text-zinc-400 text-center">
+                                      {index + 1}
+                                    </td>
+                                    <td className="py-2.5 px-3">
+                                      <select
+                                        value={row.productId}
+                                        onChange={(e) => handleUpdateReceptionRow(row.id, { productId: e.target.value })}
+                                        className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                      >
+                                        {products.map((p) => (
+                                          <option key={p.id} value={p.id}>
+                                            [{p.brand}] {p.title}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="py-2.5 px-3">
+                                      <select
+                                        value={row.variantId}
+                                        onChange={(e) => handleUpdateReceptionRow(row.id, { variantId: e.target.value })}
+                                        className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                      >
+                                        {currentProduct?.variants.map((v) => (
+                                          <option key={v.id} value={v.id}>
+                                            {v.size} ({v.color})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <span className="inline-block px-2 py-0.5 text-[11px] font-mono font-bold text-zinc-600 bg-zinc-100 rounded-md">
+                                        {currentVariant?.stock || 0} u.
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        required
+                                        value={row.quantity}
+                                        onChange={(e) =>
+                                          handleUpdateReceptionRow(row.id, {
+                                            quantity: Math.max(1, parseInt(e.target.value) || 1),
+                                          })
+                                        }
+                                        className="w-full px-2 py-1.5 text-center font-mono font-bold bg-white border border-zinc-300 rounded-lg text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                      />
+                                    </td>
+                                    <td className="py-2.5 px-3">
+                                      <div className="relative">
+                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-400">
+                                          $
+                                        </span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          required
+                                          value={row.unitCost || ''}
+                                          onChange={(e) =>
+                                            handleUpdateReceptionRow(row.id, {
+                                              unitCost: Math.max(0, parseInt(e.target.value) || 0),
+                                            })
+                                          }
+                                          className="w-full pl-6 pr-2 py-1.5 font-mono font-bold text-right bg-white border border-zinc-300 rounded-lg text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                        />
+                                      </div>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-xs text-zinc-950">
+                                      {formatCurrency(rowSubtotal)}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveReceptionRow(row.id)}
+                                        title="Eliminar fila"
+                                        className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Barra de Totales de la Planilla */}
+                        <div className="bg-zinc-50 border-t border-zinc-200 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={handleAddReceptionRow}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-800 rounded-xl text-xs font-heading font-bold uppercase transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> + Agregar Otro Artículo
+                          </button>
+
+                          <div className="flex flex-wrap items-center gap-3 text-xs font-heading">
+                            <div className="bg-white border border-zinc-200 px-3 py-1.5 rounded-xl text-zinc-700">
+                              <span className="text-zinc-500 font-bold uppercase mr-1.5 text-[10px]">Líneas:</span>
+                              <strong className="font-mono">{receptionForm.items.length}</strong>
+                            </div>
+                            <div className="bg-white border border-zinc-200 px-3 py-1.5 rounded-xl text-zinc-700">
+                              <span className="text-zinc-500 font-bold uppercase mr-1.5 text-[10px]">Total Bultos:</span>
+                              <strong className="font-mono text-emerald-700">
+                                +{receptionForm.items.reduce((acc, it) => acc + (Number(it.quantity) || 0), 0)} u.
+                              </strong>
+                            </div>
+                            <div className="bg-rose-50 border border-rose-200 px-3.5 py-1.5 rounded-xl text-rose-800 flex items-center gap-2">
+                              <span className="text-rose-600 font-bold uppercase text-[10px]">Total Factura:</span>
+                              <strong className="font-mono text-sm sm:text-base font-black text-rose-600">
+                                {formatCurrency(
+                                  receptionForm.items.reduce(
+                                    (acc, it) => acc + (Number(it.quantity) || 0) * (Number(it.unitCost) || 0),
+                                    0
+                                  )
+                                )}
+                              </strong>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Observaciones Opcionales */}
                       <div>
-                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                          N° Factura / Remito *
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Observaciones / Notas del Remito (Opcional)
                         </label>
                         <input
                           type="text"
-                          required
-                          placeholder="FC-0002-00049281"
-                          value={receptionForm.invoiceNumber}
-                          onChange={(e) => setReceptionForm({ ...receptionForm, invoiceNumber: e.target.value })}
-                          className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono font-bold focus:outline-none"
+                          placeholder="Ej: Bultos recibidos en caja cerrada con precinto OK por expreso..."
+                          value={receptionForm.notes}
+                          onChange={(e) => setReceptionForm({ ...receptionForm, notes: e.target.value })}
+                          className="w-full px-3.5 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-950"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                          Medio de Pago *
-                        </label>
-                        <select
-                          value={receptionForm.paymentMethod}
-                          onChange={(e) => setReceptionForm({ ...receptionForm, paymentMethod: e.target.value as any })}
-                          className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none"
+                    </div>
+
+                    {/* Modal Footer */}
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-zinc-200">
+                      <span className="text-[11px] text-zinc-500 hidden sm:inline">
+                        Al confirmar, se actualizará el stock de cada artículo y se asentará el egreso financiero en la caja.
+                      </span>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setShowNewReceptionModal(false)}
+                          className="px-4 py-2 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50 transition-colors"
                         >
-                          <option value="Transferencia">Transferencia Bancaria</option>
-                          <option value="Efectivo">Efectivo Caja</option>
-                          <option value="Crédito">Crédito / Cuenta Corriente</option>
-                          <option value="Débito">Débito</option>
-                        </select>
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="bg-zinc-950 hover:bg-zinc-800 text-white px-5 py-2 rounded-xl text-xs font-heading font-bold uppercase tracking-wider shadow-md flex items-center gap-2 transition-transform active:scale-95"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          Confirmar Planilla & Guardar Factura
+                        </button>
                       </div>
-                    </div>
-
-                    {/* Selector de Producto y Variante para Stock */}
-                    <div>
-                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                        Producto a Ingresar *
-                      </label>
-                      <select
-                        value={receptionForm.productId}
-                        onChange={(e) => {
-                          const pId = e.target.value;
-                          const found = products.find((p) => p.id === pId);
-                          const firstVar = found?.variants[0];
-                          setReceptionForm({
-                            ...receptionForm,
-                            productId: pId,
-                            variantId: firstVar?.id || '',
-                            unitCost: firstVar?.cost || Math.round(firstVar?.price || 0) / 1.5,
-                          });
-                        }}
-                        className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold focus:outline-none"
-                      >
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            [{p.brand}] {p.title}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                          Cantidad a Recibir (Stock +) *
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          min={1}
-                          value={receptionForm.quantity}
-                          onChange={(e) => setReceptionForm({ ...receptionForm, quantity: Number(e.target.value) })}
-                          className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-bold text-center focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
-                          Costo Unitario ($ ARS) *
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          value={receptionForm.unitCost || ''}
-                          onChange={(e) => setReceptionForm({ ...receptionForm, unitCost: Number(e.target.value) })}
-                          className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-sm font-mono font-bold focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 text-xs flex justify-between items-center">
-                      <span className="text-zinc-600 font-bold uppercase">Total Factura (Egreso):</span>
-                      <strong className="font-mono text-base text-rose-600 font-black">
-                        {formatCurrency(receptionForm.quantity * receptionForm.unitCost)}
-                      </strong>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowNewReceptionModal(false)}
-                        className="px-5 py-2.5 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        className="bg-zinc-950 text-white px-6 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-md"
-                      >
-                        Ingresar Stock & Registrar Egreso
-                      </button>
                     </div>
                   </form>
                 </div>
