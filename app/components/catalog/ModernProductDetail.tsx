@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ProductWithVariants, ProductVariant } from '@/lib/supabase/types';
 import { createClient } from '@/lib/supabase/client';
+import { PricingService, PricingPolicySettings } from '@/lib/services/pricing.service';
 import {
   ArrowLeft,
   Check,
@@ -15,6 +16,7 @@ import {
   Wrench,
   Zap,
   ChevronRight,
+  DollarSign,
 } from 'lucide-react';
 
 interface ModernProductDetailProps {
@@ -105,11 +107,10 @@ export function ModernProductDetail({ product, onBack, onAddToCart }: ModernProd
     setTimeout(() => setAddedAnimation(false), 2000);
   };
 
-  const price = activeVariant?.price || 0;
-  const transferPrice = price * 0.9; // 10% OFF
-  const installment3 = price / 3;
-  const installment6 = price / 6;
-  const installment12 = price / 12;
+  // El precio de la variante es el precio base de Débito / Transferencia
+  const debitTransferPrice = activeVariant?.price || 0;
+  const usdInfo = PricingService.calculateUsdPrice(debitTransferPrice);
+  const financingPlan = PricingService.calculateFinancingPlan(debitTransferPrice);
 
   const basePhone = process.env.NEXT_PUBLIC_LOCAL_WHATSAPP || '5493410000000';
   const whatsappMsg = `¡Hola Oroño Bike! Quiero consultar por la ${product.title} (Talle: ${selectedSize}, Color: ${selectedColor}).`;
@@ -208,35 +209,87 @@ export function ModernProductDetail({ product, onBack, onAddToCart }: ModernProd
             <p className="text-xs text-zinc-600 mt-2.5 leading-relaxed">{product.description}</p>
           </div>
 
-          {/* Pricing & Promociones (Estilo Bertolina / Fusion) */}
-          <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-5 mb-6 space-y-3">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <span className="font-heading font-black text-3xl sm:text-4xl text-zinc-950">
-                  {formatCurrency(price)}
-                </span>
-                {activeVariant?.compare_at_price && activeVariant.compare_at_price > price && (
-                  <span className="ml-2 text-sm text-zinc-400 line-through font-semibold">
-                    {formatCurrency(activeVariant.compare_at_price)}
+          {/* Pricing & Financiación Estilo Venzo / Mercado Pago */}
+          <div className="space-y-4 mb-6">
+            {/* Caja Verde Superior: DÉBITO / TRANSFERENCIA + DÓLAR */}
+            <div className="bg-white border-2 border-emerald-600/90 rounded-2xl p-4 sm:p-5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-1.5 text-emerald-700 font-heading font-black text-xs uppercase tracking-wider mb-1">
+                    <Zap className="w-3.5 h-3.5 fill-emerald-600" />
+                    <span>DÉBITO / TRANSFERENCIA</span>
+                  </div>
+                  <div className="font-heading font-black text-3xl sm:text-4xl text-zinc-950 tracking-tight">
+                    {formatCurrency(debitTransferPrice)}
+                  </div>
+                  <span className="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-heading font-black px-2 py-0.5 rounded uppercase mt-1">
+                    PRECIO ONLINE APLICADO
                   </span>
-                )}
+                </div>
+
+                <div className="text-right border-l border-zinc-200 pl-4 sm:pl-6">
+                  <div className="font-heading font-black text-xl sm:text-2xl text-zinc-950">
+                    u$d {usdInfo.usd.toLocaleString('es-AR')}
+                  </div>
+                  <div className="text-[11px] font-mono font-medium text-zinc-400 uppercase mt-0.5">
+                    DÓLAR: ${usdInfo.rate.toLocaleString('es-AR')}
+                  </div>
+                </div>
               </div>
-              <span className="text-[11px] font-heading font-bold text-zinc-500 uppercase">Factura A/B</span>
             </div>
 
-            {/* Promociones de Pago */}
-            <div className="pt-3 border-t border-zinc-200 space-y-2 text-xs">
-              <div className="flex items-center justify-between text-emerald-800 bg-emerald-50/80 p-2.5 rounded-lg border border-emerald-200 font-bold">
-                <span className="flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-emerald-600" /> Transferencia Bancaria (10% OFF):
-                </span>
-                <span className="font-heading font-black text-sm">{formatCurrency(transferPrice)}</span>
+            {/* Caja de Financiación Mercado Pago */}
+            <div className="bg-white border border-zinc-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+              {/* Cabecera Mercado Pago & Tarjetas */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="bg-sky-500 text-white text-[10px] font-heading font-black px-2 py-0.5 rounded flex items-center gap-1">
+                    <span>mp</span>
+                  </div>
+                  <span className="font-heading font-black text-xs uppercase tracking-wider text-zinc-900">
+                    FINANCIACIÓN MERCADO PAGO
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] font-heading font-black uppercase">
+                  <span className="px-1.5 py-0.5 bg-zinc-100 rounded text-zinc-700">VISA</span>
+                  <span className="px-1.5 py-0.5 bg-zinc-100 rounded text-zinc-700">MASTER</span>
+                  <span className="px-1.5 py-0.5 bg-zinc-100 rounded text-zinc-700">AMEX</span>
+                  <span className="px-1.5 py-0.5 bg-zinc-100 rounded text-zinc-700">NARANJA</span>
+                  <span className="px-1.5 py-0.5 bg-zinc-100 rounded text-zinc-700">CABAL</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-zinc-700 bg-white p-2.5 rounded-lg border border-zinc-200 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <CreditCard className="w-4 h-4 text-zinc-500" /> Hasta 12 cuotas de:
+
+              {/* Renglones de Cuotas */}
+              <div className="divide-y divide-zinc-100 text-xs">
+                {financingPlan.map((plan) => (
+                  <div key={plan.installments} className="py-2.5 flex items-center justify-between">
+                    <div className="flex items-baseline gap-1 text-zinc-800">
+                      <span className="font-heading font-black text-sky-600 text-sm">{plan.installments}</span>
+                      <span className="text-zinc-600 text-[11px] font-medium">cuotas de</span>
+                      <strong className="font-heading font-black text-zinc-950 text-xs sm:text-sm ml-1">
+                        {formatCurrency(plan.installmentAmount)}
+                      </strong>
+                    </div>
+                    <div className="text-right text-[11px] font-mono text-zinc-500">
+                      <span>Total: {formatCurrency(plan.totalAmount)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Banner Despacho / Envío Asegurado */}
+            <div className="bg-zinc-50 border border-dashed border-zinc-300 rounded-xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-zinc-200 flex items-center justify-center shrink-0">
+                <Truck className="w-4 h-4 text-zinc-800" />
+              </div>
+              <div className="text-xs">
+                <span className="font-heading font-black text-emerald-700 uppercase tracking-wide block">
+                  ¡ENVÍO ASEGURADO A TODO EL PAÍS!
                 </span>
-                <span className="font-heading font-bold text-zinc-950">{formatCurrency(installment12)}</span>
+                <span className="text-[11px] text-zinc-500">
+                  Despacho prioritario y embalaje especial para bicicletas armadas y calibradas.
+                </span>
               </div>
             </div>
           </div>

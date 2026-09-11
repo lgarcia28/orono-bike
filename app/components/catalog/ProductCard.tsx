@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { ProductWithVariants } from '@/lib/supabase/types';
+import { PricingService } from '@/lib/services/pricing.service';
 import { ChevronRight, CreditCard, Zap, Check } from 'lucide-react';
 
 interface ProductCardProps {
@@ -14,8 +15,9 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
   const maxPrice = Math.max(...product.variants.map((v) => v.price));
   const totalStock = product.variants.reduce((acc, v) => acc + v.stock, 0);
 
-  const transferPrice = minPrice * 0.9; // 10% OFF
-  const installment12 = minPrice / 12;
+  const financingPlan = PricingService.calculateFinancingPlan(minPrice);
+  const plan12 = financingPlan.find((p) => p.installments === 12) || financingPlan[3];
+  const installment12 = plan12 ? plan12.installmentAmount : Math.round((minPrice * 1.35) / 12);
 
   const sizes = Array.from(new Set(product.variants.map((v) => v.size)));
 
@@ -102,7 +104,7 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
           <div className="space-y-1 text-xs">
             <div className="flex items-center gap-1.5 text-emerald-700 font-semibold text-[11px]">
               <Zap className="w-3 h-3 shrink-0" />
-              <span>{formatCurrency(transferPrice)} con Transferencia (10% OFF)</span>
+              <span>Precio Débito / Transferencia</span>
             </div>
             <div className="flex items-center gap-1.5 text-zinc-600 text-[11px]">
               <CreditCard className="w-3 h-3 shrink-0 text-zinc-400" />

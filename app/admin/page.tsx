@@ -7,6 +7,7 @@ import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductWithVariants, ProductVariant } from '@/lib/supabase/types';
 import { WorkshopService, WorkshopServiceItem } from '@/lib/services/workshop.service';
 import { PointOfSaleInterface } from '@/app/components/pos/PointOfSaleInterface';
+import { PricingService, PricingPolicySettings, DEFAULT_PRICING_POLICY } from '@/lib/services/pricing.service';
 import {
   LayoutDashboard,
   Package,
@@ -17,6 +18,7 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  Settings2,
   Edit,
   Trash2,
   CheckCircle2,
@@ -60,7 +62,7 @@ import {
   Upload,
 } from 'lucide-react';
 
-type AdminTab = 'ventas' | 'pos_facturacion' | 'inventario' | 'recepcion' | 'clientes' | 'caja' | 'taller';
+type AdminTab = 'ventas' | 'pos_facturacion' | 'inventario' | 'politicas' | 'recepcion' | 'clientes' | 'caja' | 'taller';
 type DatePreset = 'hoy' | 'ayer' | 'semana' | 'mes' | 'custom';
 
 interface CashMovement {
@@ -580,6 +582,46 @@ export default function AdminDashboardPage() {
       localStorage.setItem('orono_receptions', JSON.stringify(receptions));
     } catch (e) {}
   }, [suppliers, receptions]);
+
+  // Políticas de Precios, Márgenes y Financiación
+  const [pricingSettings, setPricingSettings] = useState<PricingPolicySettings>(() => PricingService.getSettings());
+  const [pricingSavedToast, setPricingSavedToast] = useState(false);
+
+  const handleSavePricingPolicy = (newSettings: PricingPolicySettings) => {
+    PricingService.saveSettings(newSettings);
+    setPricingSettings(newSettings);
+    setPricingSavedToast(true);
+    setTimeout(() => setPricingSavedToast(false), 2500);
+  };
+
+  // Recalcular masivamente los precios de venta Débito/Transferencia de todo el catálogo según el costo y el margen configurado
+  const handleApplyMarginToAllProducts = (marginPercent: number) => {
+    setProducts((prev) => {
+      const updated = prev.map((p) => ({
+        ...p,
+        variants: p.variants.map((v) => {
+          const cost = v.cost || Math.round(v.price * 0.625);
+          const newPrice = Math.round(cost * (1 + marginPercent / 100));
+          return {
+            ...v,
+            cost,
+            profit_margin_percent: marginPercent,
+            price: newPrice,
+          };
+        }),
+      }));
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    const current = PricingService.getSettings();
+    handleSavePricingPolicy({
+      ...current,
+      defaultProfitMarginPercent: marginPercent,
+    });
+  };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -1456,6 +1498,14 @@ export default function AdminDashboardPage() {
             <Package className="w-4 h-4" /> Inventario
           </button>
           <button
+            onClick={() => setActiveTab('politicas')}
+            className={`px-4 py-3 font-heading text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'politicas' ? 'border-amber-400 text-amber-400 font-black' : 'border-transparent text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Settings2 className="w-4 h-4" /> Precios & Financiación MP
+          </button>
+          <button
             onClick={() => setActiveTab('recepcion')}
             className={`px-4 py-3 font-heading text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'recepcion' ? 'border-white text-white' : 'border-transparent text-zinc-400 hover:text-zinc-200'
@@ -1635,6 +1685,12 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setActiveTab('politicas')}
+                  className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-heading text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
+                >
+                  <Settings2 className="w-3.5 h-3.5" /> Políticas & Cuotas
+                </button>
                 <button
                   onClick={() => setShowBulkModal(true)}
                   className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
@@ -1889,8 +1945,252 @@ export default function AdminDashboardPage() {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 4: RECEPCIÓN DE MERCADERÍA & PROVEEDORES              */}
+        {/* TAB NUEVA: POLÍTICAS DE PRECIOS, GANANCIAS & FINANCIACIÓN */}
         {/* ========================================================= */}
+        {activeTab === 'politicas' && (
+          <div className="space-y-8 animate-fadeIn">
+            {pricingSavedToast && (
+              <div className="p-4 bg-emerald-600 text-white rounded-2xl flex items-center justify-between shadow-lg animate-bounce">
+                <div className="flex items-center gap-2 font-heading font-black text-sm uppercase">
+                  <CheckCircle2 className="w-5 h-5" /> ¡Políticas actualizadas correctamente! El catálogo y la web ya reflejan los nuevos precios y cuotas.
+                </div>
+              </div>
+            )}
+
+            {/* Cabecera Principal */}
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-zinc-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-5 h-5 text-amber-500" />
+                  <h2 className="text-xl font-heading font-black text-zinc-950">
+                    Políticas de Precios, Márgenes & Financiación
+                  </h2>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1 max-w-2xl leading-relaxed">
+                  Configurá el <strong>margen de ganancia general (+60%)</strong> sobre el costo de los productos, el <strong>descuento exclusivo en efectivo en el local físico (-20%)</strong>, la cotización de referencia en dólares y los recargos de cuotas con Mercado Pago.
+                </p>
+              </div>
+
+              <button
+                onClick={() => handleSavePricingPolicy(pricingSettings)}
+                className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-black uppercase tracking-wider px-6 py-3 rounded-2xl flex items-center gap-2 shadow-lg transition-transform active:scale-95 shrink-0"
+              >
+                <Save className="w-4 h-4 text-emerald-400" /> Guardar Políticas
+              </button>
+            </div>
+
+            {/* Bloques de Configuración */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* 1. Margen General de Ganancia */}
+              <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-heading font-bold uppercase tracking-wider text-zinc-500">
+                      Margen Ganancia Online
+                    </span>
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                      <Percent className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <input
+                      type="number"
+                      value={pricingSettings.defaultProfitMarginPercent}
+                      onChange={(e) =>
+                        setPricingSettings({
+                          ...pricingSettings,
+                          defaultProfitMarginPercent: Number(e.target.value),
+                        })
+                      }
+                      className="w-24 px-3 py-1.5 bg-zinc-50 border-2 border-emerald-400 rounded-xl text-2xl font-mono font-black text-zinc-950 focus:outline-none"
+                    />
+                    <span className="text-xl font-heading font-black text-emerald-700">% sobre Costo</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    Determina el precio para <strong>Débito / Transferencia</strong>. Si un artículo cuesta $100.000, con +60% se publicará a $160.000.
+                  </p>
+                </div>
+
+                <div className="pt-5 mt-4 border-t border-zinc-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `¿Deseas recalcular el precio de venta de TODO el catálogo aplicando un margen de +${pricingSettings.defaultProfitMarginPercent}% sobre el costo de cada producto?`
+                        )
+                      ) {
+                        handleApplyMarginToAllProducts(pricingSettings.defaultProfitMarginPercent);
+                      }
+                    }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-heading text-xs font-black uppercase tracking-wider py-2.5 rounded-xl shadow-xs transition-colors"
+                  >
+                    ⚡ Aplicar a Todo el Catálogo
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Descuento en Efectivo en Local Físico */}
+              <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-heading font-bold uppercase tracking-wider text-zinc-500">
+                      Descuento Efectivo (Local)
+                    </span>
+                    <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                      <Banknote className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <input
+                      type="number"
+                      value={pricingSettings.cashDiscountLocalPercent}
+                      onChange={(e) =>
+                        setPricingSettings({
+                          ...pricingSettings,
+                          cashDiscountLocalPercent: Number(e.target.value),
+                        })
+                      }
+                      className="w-24 px-3 py-1.5 bg-zinc-50 border-2 border-amber-400 rounded-xl text-2xl font-mono font-black text-zinc-950 focus:outline-none"
+                    />
+                    <span className="text-xl font-heading font-black text-amber-700">% OFF en Local</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    <strong>No se muestra en la web</strong> (en la tienda online solo figura Débito/Transferencia). Se aplica automáticamente al elegir Efectivo en el mostrador/POS.
+                  </p>
+                </div>
+
+                <div className="pt-5 mt-4 border-t border-zinc-100 text-[11px] text-zinc-500 font-mono">
+                  Ejemplo: Venta de $160.000 en mostrador cobra <strong>${Math.round(160000 * (1 - pricingSettings.cashDiscountLocalPercent / 100)).toLocaleString('es-AR')}</strong> en efectivo.
+                </div>
+              </div>
+
+              {/* 3. Cotización Dólar */}
+              <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-heading font-bold uppercase tracking-wider text-zinc-500">
+                      Cotización Dólar (u$d)
+                    </span>
+                    <div className="p-2 bg-sky-50 text-sky-600 rounded-xl">
+                      <DollarSign className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-xl font-mono text-zinc-400">$</span>
+                    <input
+                      type="number"
+                      value={pricingSettings.usdExchangeRate}
+                      onChange={(e) =>
+                        setPricingSettings({
+                          ...pricingSettings,
+                          usdExchangeRate: Number(e.target.value),
+                        })
+                      }
+                      className="w-28 px-3 py-1.5 bg-zinc-50 border-2 border-sky-400 rounded-xl text-2xl font-mono font-black text-zinc-950 focus:outline-none"
+                    />
+                    <span className="text-sm font-heading font-bold text-zinc-600">ARS</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    Se muestra en la ficha de producto en el badge verde superior junto al precio online: <code>u$d 326 (Dólar: $1.420)</code>.
+                  </p>
+                </div>
+
+                <div className="pt-5 mt-4 border-t border-zinc-100 text-[11px] text-zinc-500">
+                  Actualizable en cualquier momento sin recargar la página.
+                </div>
+              </div>
+            </div>
+
+            {/* Tabla de Tasas de Financiación de Mercado Pago */}
+            <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4 mb-6">
+                <div>
+                  <h3 className="text-lg font-heading font-black text-zinc-950 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-sky-600" />
+                    Tasas de Recargo por Cuotas (Mercado Pago)
+                  </h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Modificá los porcentajes de recargo financiero. La web calculará automáticamente el valor de cada cuota y el total financiado.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPricingSettings({
+                      ...pricingSettings,
+                      financingRates: DEFAULT_PRICING_POLICY.financingRates,
+                    });
+                  }}
+                  className="text-xs font-heading font-bold text-zinc-600 hover:text-zinc-950 underline"
+                >
+                  Restaurar tasas por defecto
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-zinc-200 bg-zinc-50/70 font-heading font-black uppercase text-[11px] text-zinc-600">
+                      <th className="py-3 px-4">Plan Cuotas</th>
+                      <th className="py-3 px-4">Recargo Financiero (%)</th>
+                      <th className="py-3 px-4">Ejemplo ($100.000 Débito)</th>
+                      <th className="py-3 px-4">Valor Cuota Ejemplo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200">
+                    {pricingSettings.financingRates.map((rate, idx) => {
+                      const totalEjemplo = Math.round(100000 * (1 + rate.surchargePercent / 100));
+                      const cuotaEjemplo = Math.round(totalEjemplo / rate.installments);
+                      return (
+                        <tr key={rate.installments} className="hover:bg-zinc-50/50">
+                          <td className="py-3.5 px-4 font-heading font-bold text-sm text-zinc-950">
+                            {rate.installments} cuotas
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                value={rate.surchargePercent}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  const updated = [...pricingSettings.financingRates];
+                                  updated[idx] = { ...updated[idx], surchargePercent: val };
+                                  setPricingSettings({ ...pricingSettings, financingRates: updated });
+                                }}
+                                className="w-20 px-2.5 py-1.5 bg-zinc-50 border border-zinc-300 rounded-lg text-xs font-mono font-bold text-center focus:border-zinc-950 focus:outline-none"
+                              />
+                              <span className="font-heading font-bold text-zinc-600">%</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-semibold text-zinc-700">
+                            Total: ${totalEjemplo.toLocaleString('es-AR')}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-emerald-700">
+                            {rate.installments} cuotas de ${cuotaEjemplo.toLocaleString('es-AR')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleSavePricingPolicy(pricingSettings)}
+                  className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-black uppercase tracking-wider px-6 py-3 rounded-2xl flex items-center gap-2 shadow-md transition-transform active:scale-95"
+                >
+                  <Save className="w-4 h-4 text-emerald-400" /> Guardar Cambios de Financiación
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
         {activeTab === 'recepcion' && (
           <div className="space-y-8 animate-fadeIn">
             {/* Header de Recepción */}

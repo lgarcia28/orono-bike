@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ProductsService } from '@/lib/services/products.service';
 import { OrdersService } from '@/lib/services/orders.service';
 import { ArcaAfipService } from '@/lib/services/arca.service';
+import { PricingService } from '@/lib/services/pricing.service';
 import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductVariant, Product } from '@/lib/supabase/types';
 import {
@@ -792,36 +793,23 @@ export function PointOfSaleInterface() {
             {/* Medio de Cobro */}
             <div>
               <label className="block text-[10px] font-heading font-bold uppercase text-zinc-500 mb-1">
-                Medio de Cobro
+                Medio de Cobro en Local
               </label>
               <div className="grid grid-cols-4 gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
+                    const discount = PricingService.getSettings().cashDiscountLocalPercent;
                     setPaymentMethod('cash');
-                    setDiscountPercent(0);
+                    setDiscountPercent(discount);
                   }}
                   className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
                     paymentMethod === 'cash'
-                      ? 'bg-zinc-950 text-white'
+                      ? 'bg-emerald-600 text-white font-black shadow-xs'
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                   }`}
                 >
-                  Efectivo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentMethod('transfer');
-                    setDiscountPercent(10);
-                  }}
-                  className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
-                    paymentMethod === 'transfer'
-                      ? 'bg-emerald-600 text-white font-black'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Transf (-10%)
+                  Efectivo (-{PricingService.getSettings().cashDiscountLocalPercent}%)
                 </button>
                 <button
                   type="button"
@@ -840,6 +828,20 @@ export function PointOfSaleInterface() {
                 <button
                   type="button"
                   onClick={() => {
+                    setPaymentMethod('transfer');
+                    setDiscountPercent(0);
+                  }}
+                  className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
+                    paymentMethod === 'transfer'
+                      ? 'bg-zinc-950 text-white'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  }`}
+                >
+                  Transferencia
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     setPaymentMethod('pos_credit');
                     setDiscountPercent(0);
                   }}
@@ -849,7 +851,7 @@ export function PointOfSaleInterface() {
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                   }`}
                 >
-                  3/6 Cuotas
+                  Crédito
                 </button>
               </div>
             </div>
