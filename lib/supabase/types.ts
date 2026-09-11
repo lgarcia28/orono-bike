@@ -20,6 +20,8 @@ export interface Database {
           specs: Record<string, string>;
           images: string[];
           is_active: boolean;
+          is_featured?: boolean;
+          featured_order?: number;
           created_at: string;
           updated_at: string;
         };

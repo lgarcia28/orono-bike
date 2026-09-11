@@ -56,8 +56,8 @@ export default function HomePage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      {/* Hero Section con Video de Fondo en Cámara Lenta Cinemática */}
-      <section className="relative text-white overflow-hidden py-28 sm:py-40 px-4 sm:px-6 border-b border-zinc-800">
+      {/* Hero Section con Video de Fondo (Solo visible en PC/Tablet, en Celular va directo al catálogo) */}
+      <section className="hidden md:block relative text-white overflow-hidden py-28 sm:py-40 px-4 sm:px-6 border-b border-zinc-800">
         {/* Background Video */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           <video

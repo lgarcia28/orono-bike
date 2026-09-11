@@ -19,6 +19,7 @@ import {
   Search,
   SlidersHorizontal,
   Settings2,
+  Star,
   Edit,
   Trash2,
   CheckCircle2,
@@ -1383,6 +1384,45 @@ export default function AdminDashboardPage() {
     alert(`Se incrementaron todos los precios del catálogo en un +${bulkPercent}%.`);
   };
 
+  const handleToggleFeatured = (productId: string) => {
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === productId) {
+          const nextFeatured = !p.is_featured;
+          return {
+            ...p,
+            is_featured: nextFeatured,
+            featured_order: nextFeatured ? (p.featured_order ?? 1) : undefined,
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleUpdateFeaturedOrder = (productId: string, order: number) => {
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === productId) {
+          return {
+            ...p,
+            is_featured: true,
+            featured_order: Math.max(1, order),
+          };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
   const handleDeleteVariant = (productId: string, variantId: string, variantName: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar la variante "${variantName}"?`)) {
       setProducts((prev) => {
@@ -1416,6 +1456,13 @@ export default function AdminDashboardPage() {
         p.variants.some((v) => v.sku.toLowerCase().includes(searchQuery.toLowerCase()));
 
       return matchBrand && matchCat && matchSearch;
+    }).sort((a, b) => {
+      const aFeat = a.is_featured ? 1 : 0;
+      const bFeat = b.is_featured ? 1 : 0;
+      if (aFeat !== bFeat) return bFeat - aFeat;
+      const aOrd = a.featured_order ?? 999;
+      const bOrd = b.featured_order ?? 999;
+      return aOrd - bOrd;
     });
   }, [products, selectedBrand, selectedCategory, searchQuery]);
 
@@ -1680,7 +1727,7 @@ export default function AdminDashboardPage() {
                   </h2>
                 </div>
                 <p className="text-xs text-zinc-500 mt-0.5">
-                  Carga nuevos artículos, ajusta el <strong>Costo ($)</strong> o el <strong>Margen (%)</strong> para recalcular en tiempo real el precio de venta al público.
+                  Carga nuevos artículos, ajusta el <strong>Costo ($)</strong>, <strong>Margen (%)</strong> y marcá con la <strong>estrella ⭐ (Ver 1°)</strong> las bicicletas que quieras que aparezcan primero en la tienda online.
                 </p>
               </div>
 
@@ -1815,6 +1862,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3.5 px-4">Producto / Modelo</th>
                       <th className="py-3.5 px-3">Marca</th>
                       <th className="py-3.5 px-3">Categoría</th>
+                      <th className="py-3.5 px-3 bg-amber-50/70 text-amber-950 text-center">Ver 1° (Prioridad)</th>
                       <th className="py-3.5 px-3">Variante</th>
                       <th className="py-3.5 px-3 bg-zinc-50">Costo ($ ARS)</th>
                       <th className="py-3.5 px-3 bg-zinc-50">Margen (%)</th>
@@ -1853,6 +1901,33 @@ export default function AdminDashboardPage() {
                               <span className="px-2 py-0.5 bg-zinc-100 rounded text-[10px] font-heading font-bold text-zinc-600 uppercase">
                                 {p.category}
                               </span>
+                            </td>
+                            <td className="py-3 px-3 text-center bg-amber-50/40">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleFeatured(p.id)}
+                                  title={p.is_featured ? 'Quitar de destacados' : 'Mostrar primero en el catálogo'}
+                                  className={`p-1.5 rounded-lg transition-all ${
+                                    p.is_featured
+                                      ? 'bg-amber-400 text-zinc-950 shadow-xs ring-1 ring-amber-500 scale-105'
+                                      : 'bg-zinc-100 text-zinc-400 hover:text-amber-600 hover:bg-amber-50'
+                                  }`}
+                                >
+                                  <Star className={`w-3.5 h-3.5 ${p.is_featured ? 'fill-zinc-950' : ''}`} />
+                                </button>
+                                {p.is_featured && (
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={99}
+                                    value={p.featured_order ?? 1}
+                                    onChange={(e) => handleUpdateFeaturedOrder(p.id, Number(e.target.value))}
+                                    title="Posición de orden (1 = primero)"
+                                    className="w-10 px-1 py-0.5 bg-white border border-amber-300 rounded text-center text-xs font-mono font-bold text-zinc-950 focus:outline-none"
+                                  />
+                                )}
+                              </div>
                             </td>
                             <td className="py-3 px-3 text-zinc-700">
                               <strong>{v.size}</strong> • {v.color}

@@ -113,6 +113,15 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
       }
 
       return true;
+    }).sort((a, b) => {
+      // Prioridad a destacados (is_featured) o orden asignado por el dueño (featured_order)
+      const aFeatured = a.is_featured ? 1 : 0;
+      const bFeatured = b.is_featured ? 1 : 0;
+      if (aFeatured !== bFeatured) return bFeatured - aFeatured;
+
+      const aOrder = a.featured_order ?? 999;
+      const bOrder = b.featured_order ?? 999;
+      return aOrder - bOrder;
     });
   }, [allProducts, mainSection, selectedBikeCategory, selectedBrand, searchQuery]);
 
