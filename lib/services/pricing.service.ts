@@ -6,14 +6,17 @@ export interface FinancingRate {
 export interface PricingPolicySettings {
   defaultProfitMarginPercent: number; // 60% ganancia sobre costo
   cashDiscountLocalPercent: number;   // 20% descuento exclusivo en local físico
-  usdExchangeRate: number;            // Cotización dólar (ej. 1420)
+  usdExchangeRate: number;            // Cotización dólar (ej. Banco Nación)
+  autoUpdateDollarBNA: boolean;       // Actualizar automáticamente con Banco Nación
+  dollarLastUpdated?: string;         // Timestamp de última sincronización
   financingRates: FinancingRate[];
 }
 
 export const DEFAULT_PRICING_POLICY: PricingPolicySettings = {
   defaultProfitMarginPercent: 60,
   cashDiscountLocalPercent: 20,
-  usdExchangeRate: 1420,
+  usdExchangeRate: 1535,
+  autoUpdateDollarBNA: true,
   financingRates: [
     { installments: 3, surchargePercent: 10 },
     { installments: 6, surchargePercent: 15 },
@@ -48,6 +51,31 @@ export class PricingService {
     } catch (e) {
       console.error('Error saving pricing policy:', e);
     }
+  }
+
+  /**
+   * Consulta la cotización oficial del Banco Nación en vivo y actualiza settings si está activo.
+   */
+  static async fetchBNADollarRate(): Promise<{ success: boolean; rate: number; source: string }> {
+    try {
+      const res = await fetch('/api/dollar');
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      if (data.rate) {
+        const current = this.getSettings();
+        if (current.autoUpdateDollarBNA) {
+          this.saveSettings({
+            ...current,
+            usdExchangeRate: data.rate,
+            dollarLastUpdated: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+          });
+        }
+        return { success: true, rate: data.rate, source: data.source || 'Banco Nación' };
+      }
+    } catch (e) {
+      console.warn('Could not fetch BNA dollar:', e);
+    }
+    return { success: false, rate: this.getSettings().usdExchangeRate, source: 'Local' };
   }
 
   /**

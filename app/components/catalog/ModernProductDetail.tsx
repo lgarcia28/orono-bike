@@ -92,6 +92,11 @@ export function ModernProductDetail({ product, onBack, onAddToCart }: ModernProd
     };
   }, [product.id]);
 
+  // Actualización automática de la cotización oficial del Banco Nación en vivo
+  useEffect(() => {
+    PricingService.fetchBNADollarRate();
+  }, []);
+
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -232,7 +237,7 @@ export function ModernProductDetail({ product, onBack, onAddToCart }: ModernProd
                     u$d {usdInfo.usd.toLocaleString('es-AR')}
                   </div>
                   <div className="text-[11px] font-mono font-medium text-zinc-400 uppercase mt-0.5">
-                    DÓLAR: ${usdInfo.rate.toLocaleString('es-AR')}
+                    DÓLAR BNA: ${usdInfo.rate.toLocaleString('es-AR')}
                   </div>
                 </div>
               </div>

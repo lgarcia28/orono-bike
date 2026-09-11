@@ -2065,39 +2065,95 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* 3. Cotización Dólar */}
+              {/* 3. Cotización Dólar Banco Nación */}
               <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-xs font-heading font-bold uppercase tracking-wider text-zinc-500">
                       Cotización Dólar (u$d)
                     </span>
-                    <div className="p-2 bg-sky-50 text-sky-600 rounded-xl">
+                    <div className="p-2 bg-sky-50 text-sky-600 rounded-xl flex items-center gap-1">
                       <DollarSign className="w-4 h-4" />
                     </div>
                   </div>
+
                   <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-xl font-mono text-zinc-400">$</span>
                     <input
                       type="number"
                       value={pricingSettings.usdExchangeRate}
+                      disabled={pricingSettings.autoUpdateDollarBNA}
                       onChange={(e) =>
                         setPricingSettings({
                           ...pricingSettings,
                           usdExchangeRate: Number(e.target.value),
                         })
                       }
-                      className="w-28 px-3 py-1.5 bg-zinc-50 border-2 border-sky-400 rounded-xl text-2xl font-mono font-black text-zinc-950 focus:outline-none"
+                      className={`w-28 px-3 py-1.5 border-2 rounded-xl text-2xl font-mono font-black text-zinc-950 focus:outline-none ${
+                        pricingSettings.autoUpdateDollarBNA
+                          ? 'bg-zinc-100 border-zinc-300 cursor-not-allowed opacity-90'
+                          : 'bg-zinc-50 border-sky-400'
+                      }`}
                     />
                     <span className="text-sm font-heading font-bold text-zinc-600">ARS</span>
                   </div>
-                  <p className="text-xs text-zinc-500 leading-relaxed">
-                    Se muestra en la ficha de producto en el badge verde superior junto al precio online: <code>u$d 326 (Dólar: $1.420)</code>.
+
+                  {/* Switch Auto-actualizar con Banco Nación */}
+                  <div className="mt-3 p-3 bg-sky-50/70 border border-sky-200 rounded-xl space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pricingSettings.autoUpdateDollarBNA}
+                        onChange={(e) => {
+                          const isAuto = e.target.checked;
+                          const updated = {
+                            ...pricingSettings,
+                            autoUpdateDollarBNA: isAuto,
+                          };
+                          setPricingSettings(updated);
+                          PricingService.saveSettings(updated);
+                          if (isAuto) {
+                            PricingService.fetchBNADollarRate().then((res) => {
+                              if (res.success) {
+                                setPricingSettings(PricingService.getSettings());
+                              }
+                            });
+                          }
+                        }}
+                        className="rounded text-sky-600 focus:ring-sky-500 w-4 h-4"
+                      />
+                      <span className="text-xs font-heading font-bold text-sky-900">
+                        Auto-actualizar con Banco Nación
+                      </span>
+                    </label>
+
+                    <div className="flex items-center justify-between text-[11px] text-sky-700">
+                      <span>Fuente: BNA Oficial</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await PricingService.fetchBNADollarRate();
+                          if (res.success) {
+                            setPricingSettings(PricingService.getSettings());
+                            alert(`Cotización actualizada: $${res.rate} (${res.source})`);
+                          }
+                        }}
+                        className="font-bold underline hover:text-sky-950 flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Sincronizar ya
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
+                    Se calcula en tiempo real para cada producto en la tienda: <code>u$d 326 (DÓLAR BNA: ${pricingSettings.usdExchangeRate.toLocaleString('es-AR')})</code>.
                   </p>
                 </div>
 
-                <div className="pt-5 mt-4 border-t border-zinc-100 text-[11px] text-zinc-500">
-                  Actualizable en cualquier momento sin recargar la página.
+                <div className="pt-4 mt-3 border-t border-zinc-100 text-[10px] text-zinc-400 font-mono">
+                  {pricingSettings.dollarLastUpdated
+                    ? `Última sincronización: ${pricingSettings.dollarLastUpdated} hs`
+                    : 'Actualización automática cada 5 minutos'}
                 </div>
               </div>
             </div>
