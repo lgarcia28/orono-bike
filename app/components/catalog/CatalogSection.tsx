@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ProductWithVariants, ProductVariant } from '@/lib/supabase/types';
+import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductCard } from '@/app/components/catalog/ProductCard';
 import { ModernProductDetail } from '@/app/components/catalog/ModernProductDetail';
-import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
-import { Search, SlidersHorizontal, Bike, Wrench, Package, Sparkles } from 'lucide-react';
+import { Search, SlidersHorizontal, Bike, Wrench, Package, Sparkles, Filter, X, ChevronDown, Check, RotateCcw } from 'lucide-react';
 
 interface CatalogSectionProps {
   products?: ProductWithVariants[];
@@ -21,6 +21,11 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
   const [mainSection, setMainSection] = useState<MainSectionType>('TODOS');
   const [selectedBikeCategory, setSelectedBikeCategory] = useState<string>('Todas');
   const [selectedBrand, setSelectedBrand] = useState<string>('Todas');
+  const [selectedSize, setSelectedSize] = useState<string>('Todos');
+  const [selectedWheelSize, setSelectedWheelSize] = useState<string>('Todos');
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 15000000]);
+  const [sortBy, setSortBy] = useState<'relevancia' | 'precio_menor' | 'precio_mayor' | 'marca'>('relevancia');
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeProduct, setActiveProduct] = useState<ProductWithVariants | null>(null);
   const [customBikes, setCustomBikes] = useState<ProductWithVariants[]>([]);
@@ -75,6 +80,40 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
     return [...customBikes, ...products];
   }, [customBikes, products]);
 
+  // Extraer listas dinámicas para filtros
+  const availableSizes = useMemo(() => {
+    const set = new Set<string>();
+    allProducts.forEach((p) => p.variants.forEach((v) => { if (v.size) set.add(v.size.toUpperCase()); }));
+    return ['Todos', ...Array.from(set).sort()];
+  }, [allProducts]);
+
+  const availableWheelSizes = useMemo(() => {
+    const set = new Set<string>();
+    allProducts.forEach((p) => p.variants.forEach((v) => { if (v.wheel_size) set.add(v.wheel_size); }));
+    return ['Todos', ...Array.from(set).sort()];
+  }, [allProducts]);
+
+  // Contar filtros activos
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedBrand !== 'Todas') count++;
+    if (selectedBikeCategory !== 'Todas') count++;
+    if (selectedSize !== 'Todos') count++;
+    if (selectedWheelSize !== 'Todos') count++;
+    if (priceRange[0] > 0 || priceRange[1] < 15000000) count++;
+    return count;
+  }, [selectedBrand, selectedBikeCategory, selectedSize, selectedWheelSize, priceRange]);
+
+  const handleResetFilters = () => {
+    setSelectedBrand('Todas');
+    setSelectedBikeCategory('Todas');
+    setSelectedSize('Todos');
+    setSelectedWheelSize('Todos');
+    setPriceRange([0, 15000000]);
+    setSortBy('relevancia');
+    setSearchQuery('');
+  };
+
   // Filtrado reactivo 100% estricto por Sección Principal
   const filteredProducts = useMemo(() => {
     return allProducts.filter((p) => {
@@ -92,7 +131,7 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
         if (!isAccessory) return false; // Solo accesorios (NO bicis, NO componentes)
       }
 
-      // 2. FILTRADO POR SUBCATEGORÍA DE BICI (solo si estamos en Bicicletas o Todos)
+      // 2. FILTRADO POR SUBCATEGORÍA DE BICI
       if (isBike && selectedBikeCategory !== 'Todas') {
         if (cat !== selectedBikeCategory.toUpperCase()) return false;
       }
@@ -102,7 +141,25 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
         if ((p.brand || '').toUpperCase().trim() !== selectedBrand.toUpperCase().trim()) return false;
       }
 
-      // 4. BUSCADOR PREDICTIVO
+      // 4. FILTRADO POR TALLE
+      if (selectedSize !== 'Todos') {
+        const hasSize = p.variants.some((v) => (v.size || '').toUpperCase() === selectedSize);
+        if (!hasSize) return false;
+      }
+
+      // 5. FILTRADO POR RODADO
+      if (selectedWheelSize !== 'Todos') {
+        const hasWheel = p.variants.some((v) => (v.wheel_size || '') === selectedWheelSize);
+        if (!hasWheel) return false;
+      }
+
+      // 6. FILTRADO POR PRECIO
+      const minP = Math.min(...p.variants.map((v) => v.price));
+      if (minP < priceRange[0] || minP > priceRange[1]) {
+        return false;
+      }
+
+      // 7. BUSCADOR PREDICTIVO
       const q = searchQuery.toLowerCase().trim();
       if (q) {
         const matchTitle = (p.title || '').toLowerCase().includes(q);
@@ -114,7 +171,22 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
 
       return true;
     }).sort((a, b) => {
-      // Prioridad a destacados (is_featured) o orden asignado por el dueño (featured_order)
+      // Ordenamiento por precio si el usuario lo seleccionó
+      if (sortBy === 'precio_menor') {
+        const minA = Math.min(...a.variants.map((v) => v.price));
+        const minB = Math.min(...b.variants.map((v) => v.price));
+        return minA - minB;
+      }
+      if (sortBy === 'precio_mayor') {
+        const minA = Math.min(...a.variants.map((v) => v.price));
+        const minB = Math.min(...b.variants.map((v) => v.price));
+        return minB - minA;
+      }
+      if (sortBy === 'marca') {
+        return a.brand.localeCompare(b.brand);
+      }
+
+      // Default / Relevancia: Prioridad a destacados (is_featured) o orden asignado por el dueño (featured_order)
       const aFeatured = a.is_featured ? 1 : 0;
       const bFeatured = b.is_featured ? 1 : 0;
       if (aFeatured !== bFeatured) return bFeatured - aFeatured;
@@ -123,7 +195,7 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
       const bOrder = b.featured_order ?? 999;
       return aOrder - bOrder;
     });
-  }, [allProducts, mainSection, selectedBikeCategory, selectedBrand, searchQuery]);
+  }, [allProducts, mainSection, selectedBikeCategory, selectedBrand, selectedSize, selectedWheelSize, priceRange, sortBy, searchQuery]);
 
   const handleSwitchSection = (section: MainSectionType) => {
     setMainSection(section);
@@ -174,21 +246,50 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
           </p>
         </div>
 
-        {/* Search Bar Minimalista */}
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-          <input
-            type="text"
-            placeholder="Buscar producto, marca o modelo..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all"
-          />
+        {/* Search Bar Minimalista y Botón Filtrar */}
+        <div className="flex items-center gap-2.5 w-full md:w-auto">
+          <div className="relative flex-1 md:w-80">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="Buscar producto, marca o modelo..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 p-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsFilterDrawerOpen(true)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all shrink-0 border ${
+              activeFiltersCount > 0
+                ? 'bg-zinc-950 text-white border-zinc-950 shadow-sm'
+                : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-900 hover:bg-zinc-50'
+            }`}
+          >
+            <Filter className={`w-3.5 h-3.5 ${activeFiltersCount > 0 ? 'text-emerald-400' : 'text-zinc-500'}`} />
+            <span>Filtrar</span>
+            {activeFiltersCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-emerald-500 text-zinc-950 text-[10px] font-black flex items-center justify-center ml-0.5">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Tabs de Secciones Principales: TODOS, BICICLETAS, COMPONENTES, ACCESORIOS */}
-      <div className="flex flex-wrap items-center gap-2 mb-5">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <button
           type="button"
           onClick={() => handleSwitchSection('TODOS')}
@@ -237,7 +338,7 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
 
       {/* Subcategorías de Bicicletas (Solo cuando estamos en Bicicletas o Todos) */}
       {(mainSection === 'BICICLETAS' || mainSection === 'TODOS') && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-3 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-2 scrollbar-none">
           <span className="text-[11px] font-heading font-bold uppercase tracking-wider text-zinc-400 mr-1.5 shrink-0">
             Categoría:
           </span>
@@ -261,8 +362,8 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
         </div>
       )}
 
-      {/* Brand Selector Chips */}
-      <div className="flex items-center gap-1.5 overflow-x-auto text-xs pb-4 mb-8 scrollbar-none">
+      {/* Brand Selector Quick Chips */}
+      <div className="flex items-center gap-1.5 overflow-x-auto text-xs pb-3 mb-4 scrollbar-none">
         <span className="text-zinc-400 font-heading font-bold text-[11px] uppercase tracking-wider mr-1.5 flex items-center gap-1 shrink-0">
           <SlidersHorizontal className="w-3 h-3" /> Marca:
         </span>
@@ -284,6 +385,274 @@ export function CatalogSection({ products = ALL_PRODUCTS_CATALOG, onAddToCart }:
           );
         })}
       </div>
+
+      {/* Active Filter Tags Bar (si hay filtros aplicados) */}
+      {activeFiltersCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2 p-3 bg-zinc-50 border border-zinc-200/80 rounded-2xl mb-8">
+          <span className="text-xs font-semibold text-zinc-500 mr-1">Filtros aplicados:</span>
+          {selectedBrand !== 'Todas' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-zinc-200 text-zinc-900 rounded-lg text-xs font-medium">
+              Marca: <b>{selectedBrand}</b>
+              <button type="button" onClick={() => setSelectedBrand('Todas')} className="hover:text-red-500">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {selectedBikeCategory !== 'Todas' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-zinc-200 text-zinc-900 rounded-lg text-xs font-medium">
+              Categoría: <b>{selectedBikeCategory}</b>
+              <button type="button" onClick={() => setSelectedBikeCategory('Todas')} className="hover:text-red-500">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {selectedSize !== 'Todos' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-zinc-200 text-zinc-900 rounded-lg text-xs font-medium">
+              Talle: <b>{selectedSize}</b>
+              <button type="button" onClick={() => setSelectedSize('Todos')} className="hover:text-red-500">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {selectedWheelSize !== 'Todos' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-zinc-200 text-zinc-900 rounded-lg text-xs font-medium">
+              Rodado: <b>{selectedWheelSize}</b>
+              <button type="button" onClick={() => setSelectedWheelSize('Todos')} className="hover:text-red-500">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {(priceRange[0] > 0 || priceRange[1] < 15000000) && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-zinc-200 text-zinc-900 rounded-lg text-xs font-medium">
+              Precio: <b>${priceRange[0].toLocaleString()} - ${priceRange[1].toLocaleString()}</b>
+              <button type="button" onClick={() => setPriceRange([0, 15000000])} className="hover:text-red-500">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {sortBy !== 'relevancia' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-zinc-200 text-zinc-900 rounded-lg text-xs font-medium">
+              Orden: <b>{sortBy === 'precio_menor' ? 'Menor precio' : sortBy === 'precio_mayor' ? 'Mayor precio' : 'Marca'}</b>
+              <button type="button" onClick={() => setSortBy('relevancia')} className="hover:text-red-500">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            className="ml-auto text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 px-2 py-1"
+          >
+            <RotateCcw className="w-3 h-3" /> Limpiar todo
+          </button>
+        </div>
+      )}
+
+      {/* Drawer / Modal de Filtros Avanzado */}
+      {isFilterDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-fadeIn"
+            onClick={() => setIsFilterDrawerOpen(false)}
+          />
+
+          {/* Drawer Panel */}
+          <aside className="relative w-full max-w-md bg-white h-full shadow-2xl z-10 flex flex-col overflow-hidden animate-slideLeft">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-200">
+              <div className="flex items-center gap-2.5">
+                <Filter className="w-5 h-5 text-zinc-900" />
+                <h3 className="font-heading font-black text-lg text-zinc-950 uppercase tracking-wide">
+                  Filtros del Catálogo
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilterDrawerOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Filters Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-7">
+              {/* Ordenar por */}
+              <div>
+                <label className="block text-xs font-heading font-bold uppercase tracking-wider text-zinc-500 mb-2.5">
+                  Ordenar por
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'relevancia', label: 'Destacados' },
+                    { id: 'precio_menor', label: 'Menor precio' },
+                    { id: 'precio_mayor', label: 'Mayor precio' },
+                    { id: 'marca', label: 'Marca (A-Z)' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setSortBy(opt.id as any)}
+                      className={`px-3 py-2 rounded-xl text-xs font-medium border text-left transition-all ${
+                        sortBy === opt.id
+                          ? 'border-zinc-950 bg-zinc-950 text-white font-bold'
+                          : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Marca */}
+              <div>
+                <label className="block text-xs font-heading font-bold uppercase tracking-wider text-zinc-500 mb-2.5">
+                  Marca
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {BRANDS.map((brand) => (
+                    <button
+                      key={brand}
+                      type="button"
+                      onClick={() => setSelectedBrand(brand)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                        selectedBrand === brand
+                          ? 'border-zinc-950 bg-zinc-950 text-white font-bold shadow-xs'
+                          : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400'
+                      }`}
+                    >
+                      {brand}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Talle */}
+              {availableSizes.length > 1 && (
+                <div>
+                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-zinc-500 mb-2.5">
+                    Talle de Cuadro
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableSizes.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setSelectedSize(size)}
+                        className={`min-w-10 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                          selectedSize === size
+                            ? 'border-zinc-950 bg-zinc-950 text-white font-bold shadow-xs'
+                            : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rodado */}
+              {availableWheelSizes.length > 1 && (
+                <div>
+                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-zinc-500 mb-2.5">
+                    Rodado
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableWheelSizes.map((wheel) => (
+                      <button
+                        key={wheel}
+                        type="button"
+                        onClick={() => setSelectedWheelSize(wheel)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                          selectedWheelSize === wheel
+                            ? 'border-zinc-950 bg-zinc-950 text-white font-bold shadow-xs'
+                            : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400'
+                        }`}
+                      >
+                        {wheel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Rango de Precio */}
+              <div>
+                <label className="block text-xs font-heading font-bold uppercase tracking-wider text-zinc-500 mb-2.5">
+                  Rango de Precio (ARS)
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[11px] text-zinc-400 font-medium">Mínimo</span>
+                    <div className="relative mt-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">$</span>
+                      <input
+                        type="number"
+                        value={priceRange[0] || ''}
+                        onChange={(e) => setPriceRange([Number(e.target.value) || 0, priceRange[1]])}
+                        placeholder="0"
+                        className="w-full pl-6 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-zinc-400 font-medium">Máximo</span>
+                    <div className="relative mt-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">$</span>
+                      <input
+                        type="number"
+                        value={priceRange[1] || ''}
+                        onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value) || 15000000])}
+                        placeholder="15.000.000"
+                        className="w-full pl-6 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Botones de Presets de Precio Rápidos */}
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {[
+                    { label: 'Hasta $500k', max: 500000 },
+                    { label: 'Hasta $1.5M', max: 1500000 },
+                    { label: 'Hasta $3M', max: 3000000 },
+                    { label: '+ $3M', min: 3000000, max: 15000000 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setPriceRange([preset.min || 0, preset.max])}
+                      className="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 rounded-lg text-[11px] text-zinc-700 font-medium transition-all"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-5 border-t border-zinc-200 bg-zinc-50 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="flex-1 py-3 px-4 border border-zinc-200 bg-white hover:bg-zinc-100 rounded-xl text-xs font-heading font-bold text-zinc-700 uppercase tracking-wider transition-all text-center"
+              >
+                Limpiar
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterDrawerOpen(false)}
+                className="flex-[2] py-3 px-4 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all text-center shadow-sm"
+              >
+                Ver {filteredProducts.length} {filteredProducts.length === 1 ? 'Producto' : 'Productos'}
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* Products Grid (Cuadrícula de a 3 Productos) */}
       {filteredProducts.length === 0 ? (
