@@ -9,12 +9,10 @@ import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductVariant } from '@/lib/supabase/types';
 import {
   Wrench,
-  ShieldCheck,
   Zap,
   ArrowRight,
   CreditCard,
   Truck,
-  CheckCircle2,
   Phone,
   MessageCircle,
   LayoutDashboard,
@@ -91,7 +89,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
           <div className="lg:col-span-8 space-y-6">
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-heading font-black tracking-tight text-white leading-[1.05]">
-              BICICLETAS DE ALTO RENDIMIENTO & TALLER.
+              BICICLETAS DE ALTO RENDIMIENTO.
             </h1>
 
             <p className="text-zinc-300 text-sm sm:text-base max-w-2xl leading-relaxed font-medium tracking-wide">
@@ -155,66 +153,7 @@ export default function HomePage() {
         />
       </main>
 
-      {/* Workshop Section */}
-      <section className="bg-zinc-50 border-t border-zinc-200 py-24 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-6 space-y-5">
-            <div className="inline-flex items-center gap-1.5 text-xs font-heading font-bold text-zinc-700 bg-zinc-200 px-3 py-1 rounded-md uppercase tracking-wider">
-              <Wrench className="w-4 h-4 text-zinc-950" /> SERVICIO TÉCNICO OFICIAL
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-heading font-black text-zinc-950 tracking-tight leading-tight">
-              Taller Mecánico Especializado en Bv. Oroño
-            </h2>
-            <p className="text-zinc-600 text-sm leading-relaxed">
-              Mantenimiento integral de transmisiones, purga de frenos hidráulicos, calibración y service general con repuestos oficiales.
-            </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2 text-xs">
-              <div className="flex items-center gap-2.5 text-zinc-900 font-semibold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Herramientas de precisión oficiales</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-zinc-900 font-semibold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Repuestos originales sellados</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-zinc-900 font-semibold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Reserva online sin esperas</span>
-              </div>
-              <div className="flex items-center gap-2.5 text-zinc-900 font-semibold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Notificación directa por WhatsApp</span>
-              </div>
-            </div>
-
-            <div className="pt-4">
-              <Link
-                href="/taller"
-                className="inline-flex items-center gap-2 bg-zinc-950 text-white px-8 py-4 rounded-xl font-heading text-xs font-extrabold uppercase tracking-wider hover:bg-zinc-800 transition-all shadow-md"
-              >
-                Agendar Turno de Service <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-
-          <div className="lg:col-span-6">
-            <div className="relative rounded-3xl overflow-hidden border border-zinc-200 shadow-2xl aspect-16/10 bg-zinc-950">
-              <img
-                src="https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=1200&q=80"
-                alt="Taller Oroño Bike"
-                className="w-full h-full object-cover opacity-90"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent flex items-end p-8">
-                <div className="text-white">
-                  <span className="text-xs font-heading font-bold text-zinc-300 block uppercase tracking-wider">Local & Taller</span>
-                  <strong className="text-lg font-heading font-black">Bv. Nicasio Oroño 1234, Rosario</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Modern Clean Footer */}
       <footer className="bg-zinc-950 text-zinc-400 py-16 px-4 sm:px-6 border-t border-zinc-800 text-xs">
