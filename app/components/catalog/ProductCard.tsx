@@ -88,27 +88,37 @@ export function ProductCard({ product, onSelect }: ProductCardProps) {
           )}
         </div>
 
-        {/* Pricing Breakdown (Estilo Bertolina / Fusion Bikes) */}
-        <div className="mt-5 pt-4 border-t border-zinc-100 space-y-2">
-          {/* Main Price */}
-          <div className="flex items-baseline gap-2">
-            <span className="font-heading font-black text-xl text-zinc-950">
-              {formatCurrency(minPrice)}
-            </span>
-            {minPrice !== maxPrice && (
-              <span className="text-xs text-zinc-400 font-medium">hasta {formatCurrency(maxPrice)}</span>
-            )}
+        {/* Pricing Breakdown (Estilo Bertolina) */}
+        <div className="mt-4 pt-3 border-t border-zinc-100 space-y-2">
+          {/* Caja Verde: PRECIO CON DÉBITO / TRANSFERENCIA */}
+          <div className="bg-emerald-50/50 border border-emerald-500/70 rounded-xl p-2.5 transition-colors group-hover:border-emerald-600">
+            <div className="flex items-center justify-between gap-1 text-[10px] font-heading font-black tracking-wider uppercase text-emerald-700">
+              <span className="flex items-center gap-1">
+                <Zap className="w-3 h-3 text-emerald-600 fill-emerald-600" />
+                DÉBITO / TRANSFERENCIA
+              </span>
+            </div>
+            <div className="mt-0.5 flex items-baseline gap-1.5">
+              <span className="font-heading font-black text-lg sm:text-xl text-emerald-700 tracking-tight">
+                {formatCurrency(minPrice)}
+              </span>
+              {minPrice !== maxPrice && (
+                <span className="text-[10px] font-bold text-emerald-600/80">hasta {formatCurrency(maxPrice)}</span>
+              )}
+            </div>
           </div>
 
-          {/* Promos Box */}
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center gap-1.5 text-emerald-700 font-semibold text-[11px]">
-              <Zap className="w-3 h-3 shrink-0" />
-              <span>Precio Débito / Transferencia</span>
+          {/* Caja Celeste: CUOTAS MERCADO LIBRE / MERCADO PAGO */}
+          <div className="bg-sky-50/40 border border-sky-400/60 rounded-xl p-2.5 transition-colors group-hover:border-sky-500">
+            <div className="flex items-center justify-between text-[10px] font-heading font-bold text-sky-800 uppercase tracking-wide">
+              <span>12 CUOTAS</span>
+              <div className="flex items-center gap-1 opacity-75">
+                <span className="text-[9px] font-black bg-white px-1 py-0.2 rounded border border-sky-200">VISA</span>
+                <span className="text-[9px] font-black bg-white px-1 py-0.2 rounded border border-sky-200">MC</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 text-zinc-600 text-[11px]">
-              <CreditCard className="w-3 h-3 shrink-0 text-zinc-400" />
-              <span>Hasta 12 cuotas de <strong>{formatCurrency(installment12)}</strong></span>
+            <div className="mt-0.5 font-heading font-black text-base sm:text-lg text-sky-600 tracking-tight">
+              {formatCurrency(installment12)}
             </div>
           </div>
 
