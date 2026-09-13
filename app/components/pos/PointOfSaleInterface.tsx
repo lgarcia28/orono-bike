@@ -2,220 +2,563 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ProductsService } from '@/lib/services/products.service';
-import { OrdersService } from '@/lib/services/orders.service';
-import { ArcaAfipService } from '@/lib/services/arca.service';
-import { PricingService } from '@/lib/services/pricing.service';
 import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductVariant, Product } from '@/lib/supabase/types';
 import {
   Search,
-  Barcode,
-  Trash2,
   Plus,
-  Minus,
-  CreditCard,
-  Banknote,
+  Trash2,
   Receipt,
-  CheckCircle,
   Printer,
   QrCode,
-  User,
-  Zap,
-  Bike,
-  Package,
-  Wrench,
+  Users,
   Layers,
-  Sparkles,
-  ArrowRight,
-  Filter,
   FileText,
-  Phone,
-  Mail,
-  UserPlus,
+  Building2,
+  CheckCircle,
+  Calendar,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  ExternalLink,
+  ChevronRight,
+  ShieldCheck,
+  Percent,
+  Eye,
+  ShoppingBag,
 } from 'lucide-react';
 
-interface CartItem {
-  variant: ProductVariant & { product: Product };
-  quantity: number;
-}
-
-export interface InvoiceRecord {
+export interface CustomerRecord {
   id: string;
-  orderNumber: string;
-  date: string;
-  type: 'FACTURA_A' | 'FACTURA_B' | 'TICKET_LOCAL';
-  customerName: string;
-  customerPhone: string;
-  customerEmail: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
   doc: string;
   docType: 'DNI' | 'CUIT';
-  amount: number;
-  paymentMethod: string;
-  cae?: string;
-  caeVto?: string;
-  itemsSummary: string;
-  bicyclesBought: string[];
-  status: string;
+  purchases: {
+    date: string;
+    orderId: string;
+    invoiceId?: string;
+    invoiceType?: string;
+    itemsSummary: string;
+    bicyclesBought: string[];
+    total: number;
+  }[];
+  totalSpent: number;
+  createdAt: string;
 }
 
-const DEFAULT_INVOICES: InvoiceRecord[] = [
+export interface SaleInvoiceItem {
+  id: string;
+  productId: string;
+  productTitle: string;
+  variantId: string;
+  variantDetails: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+}
+
+export interface SaleInvoiceRecord {
+  id: string; // ej: "FAC-B-0001-00004521"
+  invoiceNumber: string; // ej: "B-0001-00004521"
+  invoiceType: 'A' | 'B' | 'C' | 'REM';
+  invoicePos: string;
+  invoiceNum: string;
+  date: string;
+  customerId: string;
+  customerName: string;
+  customerDoc: string;
+  customerDocType: 'DNI' | 'CUIT';
+  customerPhone: string;
+  customerEmail: string;
+  paymentMethod: 'Transferencia' | 'Efectivo' | 'Débito' | 'Crédito' | 'Mercado Pago';
+  items: SaleInvoiceItem[];
+  subtotal: number;
+  discountPercent: number;
+  discountAmount: number;
+  totalAmount: number;
+  notes?: string;
+  cae?: string;
+  caeVto?: string;
+  status: 'Aprobada' | 'Emitido Local';
+}
+
+const DEFAULT_CUSTOMERS: CustomerRecord[] = [
   {
-    id: 'FAC-0001-00004521',
-    orderNumber: 'ORD-0004521',
-    date: '2026-09-07 18:30',
-    type: 'FACTURA_B',
-    customerName: 'Gonzalo Martínez',
-    customerPhone: '5493415551234',
-    customerEmail: 'gonzalo.martinez@gmail.com',
+    id: 'cli-001',
+    firstName: 'Gonzalo',
+    lastName: 'Martínez',
+    phone: '5493415551234',
+    email: 'gonzalo.martinez@gmail.com',
     doc: '38.450.112',
     docType: 'DNI',
-    amount: 2450000,
-    paymentMethod: 'Débito',
-    cae: '74389201948271',
-    caeVto: '2026-09-17',
-    itemsSummary: 'Volta Radix Carbon 12v (Talle M)',
-    bicyclesBought: ['Volta Radix Carbon 12v Shimano Deore'],
-    status: 'Aprobada',
+    totalSpent: 2450000,
+    createdAt: '2026-08-15',
+    purchases: [
+      {
+        date: '2026-09-07',
+        orderId: 'ORD-0004521',
+        invoiceId: 'B-0001-00004521',
+        invoiceType: 'FACTURA_B',
+        itemsSummary: 'Volta Radix Carbon 12v (Talle M)',
+        bicyclesBought: ['Volta Radix Carbon 12v Shimano Deore'],
+        total: 2450000,
+      },
+    ],
   },
   {
-    id: 'FAC-0001-00004520',
-    orderNumber: 'ORD-0004520',
-    date: '2026-09-07 16:15',
-    type: 'FACTURA_A',
-    customerName: 'Rosario Cycling Team SRL',
-    customerPhone: '5493415559900',
-    customerEmail: 'administracion@rosariocycling.com.ar',
+    id: 'cli-002',
+    firstName: 'Rosario Cycling',
+    lastName: 'Team SRL',
+    phone: '5493415559900',
+    email: 'administracion@rosariocycling.com.ar',
     doc: '30-71829301-4',
     docType: 'CUIT',
-    amount: 8900000,
-    paymentMethod: 'Transferencia',
-    cae: '74389201948270',
+    totalSpent: 8900000,
+    createdAt: '2026-08-20',
+    purchases: [
+      {
+        date: '2026-09-07',
+        orderId: 'ORD-0004520',
+        invoiceId: 'A-0001-00004520',
+        invoiceType: 'FACTURA_A',
+        itemsSummary: 'Scott Spark RC World Cup EVO AXS (Talle M)',
+        bicyclesBought: ['Scott Spark RC World Cup EVO AXS'],
+        total: 8900000,
+      },
+    ],
+  },
+  {
+    id: 'cli-003',
+    firstName: 'Lucía',
+    lastName: 'Fernández',
+    phone: '5493415554321',
+    email: 'lucia.f@hotmail.com',
+    doc: '41.220.984',
+    docType: 'DNI',
+    totalSpent: 1350000,
+    createdAt: '2026-09-01',
+    purchases: [
+      {
+        date: '2026-09-07',
+        orderId: 'ORD-0004519',
+        invoiceId: 'B-0001-00001089',
+        invoiceType: 'FACTURA_B',
+        itemsSummary: 'Raleigh Mojave 9.5 29er (Talle M)',
+        bicyclesBought: ['Raleigh Mojave 9.5 29er Shimano Deore'],
+        total: 1350000,
+      },
+    ],
+  },
+];
+
+const DEFAULT_INVOICES: SaleInvoiceRecord[] = [
+  {
+    id: 'FAC-B-0001-00004521',
+    invoiceNumber: 'B-0001-00004521',
+    invoiceType: 'B',
+    invoicePos: '0001',
+    invoiceNum: '00004521',
+    date: '2026-09-07',
+    customerId: 'cli-001',
+    customerName: 'Gonzalo Martínez',
+    customerDoc: '38.450.112',
+    customerDocType: 'DNI',
+    customerPhone: '5493415551234',
+    customerEmail: 'gonzalo.martinez@gmail.com',
+    paymentMethod: 'Débito',
+    items: [
+      {
+        id: 'row-1',
+        productId: 'bike-volta-radix',
+        productTitle: 'Volta Radix Carbon 12v Shimano Deore',
+        variantId: 'v-radix-m',
+        variantDetails: 'Talle M (Negro Mate)',
+        quantity: 1,
+        unitPrice: 2450000,
+        subtotal: 2450000,
+      },
+    ],
+    subtotal: 2450000,
+    discountPercent: 0,
+    discountAmount: 0,
+    totalAmount: 2450000,
+    cae: '74389201948271',
     caeVto: '2026-09-17',
-    itemsSummary: 'Scott Spark RC World Cup EVO AXS (Talle M)',
-    bicyclesBought: ['Scott Spark RC World Cup EVO AXS'],
     status: 'Aprobada',
   },
   {
-    id: 'REM-0001-00001089',
-    orderNumber: 'ORD-0004519',
-    date: '2026-09-07 11:00',
-    type: 'TICKET_LOCAL',
+    id: 'FAC-A-0001-00004520',
+    invoiceNumber: 'A-0001-00004520',
+    invoiceType: 'A',
+    invoicePos: '0001',
+    invoiceNum: '00004520',
+    date: '2026-09-07',
+    customerId: 'cli-002',
+    customerName: 'Rosario Cycling Team SRL',
+    customerDoc: '30-71829301-4',
+    customerDocType: 'CUIT',
+    customerPhone: '5493415559900',
+    customerEmail: 'administracion@rosariocycling.com.ar',
+    paymentMethod: 'Transferencia',
+    items: [
+      {
+        id: 'row-2',
+        productId: 'bike-scott-spark',
+        productTitle: 'Scott Spark RC World Cup EVO AXS',
+        variantId: 'v-spark-m',
+        variantDetails: 'Talle M (Negro Carbono)',
+        quantity: 1,
+        unitPrice: 8900000,
+        subtotal: 8900000,
+      },
+    ],
+    subtotal: 8900000,
+    discountPercent: 0,
+    discountAmount: 0,
+    totalAmount: 8900000,
+    cae: '74389201948270',
+    caeVto: '2026-09-17',
+    status: 'Aprobada',
+  },
+  {
+    id: 'FAC-B-0001-00001089',
+    invoiceNumber: 'B-0001-00001089',
+    invoiceType: 'B',
+    invoicePos: '0001',
+    invoiceNum: '00001089',
+    date: '2026-09-07',
+    customerId: 'cli-003',
     customerName: 'Lucía Fernández',
+    customerDoc: '41.220.984',
+    customerDocType: 'DNI',
     customerPhone: '5493415554321',
     customerEmail: 'lucia.f@hotmail.com',
-    doc: '41.220.984',
-    docType: 'DNI',
-    amount: 1350000,
     paymentMethod: 'Efectivo',
-    itemsSummary: 'Raleigh Mojave 9.5 29er (Talle M)',
-    bicyclesBought: ['Raleigh Mojave 9.5 29er Shimano Deore'],
+    items: [
+      {
+        id: 'row-3',
+        productId: 'bike-raleigh-mojave',
+        productTitle: 'Raleigh Mojave 9.5 29er Shimano Deore',
+        variantId: 'v-mojave-m',
+        variantDetails: 'Talle M (Gris/Rojo)',
+        quantity: 1,
+        unitPrice: 1350000,
+        subtotal: 1350000,
+      },
+    ],
+    subtotal: 1350000,
+    discountPercent: 0,
+    discountAmount: 0,
+    totalAmount: 1350000,
     status: 'Emitido Local',
   },
 ];
 
 export function PointOfSaleInterface() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<(ProductVariant & { product: Product })[]>([]);
-  const [activeCatalogCategory, setActiveCatalogCategory] = useState<'TODOS' | 'BICICLETAS' | 'COMPONENTES' | 'ACCESORIOS'>('TODOS');
-  const [cart, setCart] = useState<CartItem[]>([]);
-  
-  // Checkout & Facturación States
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'pos_debit' | 'pos_credit' | 'transfer'>('cash');
-  const [billingType, setBillingType] = useState<'FACTURA_B' | 'FACTURA_A' | 'TICKET_LOCAL'>('FACTURA_B');
-  
-  // Datos del Cliente (Si se deja vacío, se emite automáticamente a Consumidor Final)
-  const [clientFullName, setClientFullName] = useState('');
-  const [clientPhone, setClientPhone] = useState('');
-  const [clientEmail, setClientEmail] = useState('');
-  const [docType, setDocType] = useState<'DNI' | 'CUIT'>('DNI');
-  const [docNumber, setDocNumber] = useState('');
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  // Productos y catálogo sincronizados
+  const [products, setProducts] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('orono_custom_bikes');
+        if (stored) return JSON.parse(stored);
+      } catch (e) {}
+    }
+    return ALL_PRODUCTS_CATALOG;
+  });
 
-  // Status & Modal de Factura Emitida
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [issuedInvoice, setIssuedInvoice] = useState<any>(null);
+  // Clientes
+  const [customers, setCustomers] = useState<CustomerRecord[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('orono_customers');
+        if (stored) return JSON.parse(stored);
+      } catch (e) {}
+    }
+    return DEFAULT_CUSTOMERS;
+  });
 
-  // Historial de Comprobantes Emitidos
-  const [invoicesHistory, setInvoicesHistory] = useState<InvoiceRecord[]>(() => {
+  // Historial de Facturas de Venta
+  const [invoices, setInvoices] = useState<SaleInvoiceRecord[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('orono_invoices_history');
-        if (stored) return JSON.parse(stored);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Normalizar si viene del formato viejo
+          return parsed.map((inv: any) => ({
+            id: inv.id || `FAC-${inv.orderNumber || Date.now()}`,
+            invoiceNumber: inv.invoiceNumber || inv.id || 'B-0001-00000000',
+            invoiceType: inv.type === 'FACTURA_A' ? 'A' : inv.type === 'REM' ? 'REM' : 'B',
+            invoicePos: inv.invoicePos || '0001',
+            invoiceNum: inv.invoiceNum || (inv.id?.split('-')[2] || '00000000'),
+            date: inv.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+            customerId: inv.customerId || 'cli-001',
+            customerName: inv.customerName || 'Consumidor Final',
+            customerDoc: inv.doc || '',
+            customerDocType: inv.docType || 'DNI',
+            customerPhone: inv.customerPhone || '',
+            customerEmail: inv.customerEmail || '',
+            paymentMethod: inv.paymentMethod || 'Efectivo',
+            items: inv.items || [
+              {
+                id: '1',
+                productId: 'prod-legacy',
+                productTitle: inv.itemsSummary || 'Artículos Varios',
+                variantId: 'var-legacy',
+                variantDetails: 'Estándar',
+                quantity: 1,
+                unitPrice: inv.amount || 0,
+                subtotal: inv.amount || 0,
+              },
+            ],
+            subtotal: inv.amount || inv.totalAmount || 0,
+            discountPercent: 0,
+            discountAmount: 0,
+            totalAmount: inv.amount || inv.totalAmount || 0,
+            notes: inv.notes || '',
+            cae: inv.cae,
+            caeVto: inv.caeVto,
+            status: inv.status || 'Aprobada',
+          }));
+        }
       } catch (e) {}
     }
     return DEFAULT_INVOICES;
   });
 
-  const [invoiceFilterType, setInvoiceFilterType] = useState<'TODOS' | 'FACTURA_A' | 'FACTURA_B' | 'TICKET_LOCAL'>('TODOS');
-  const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
-
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Sincronizar historial con localStorage
+  // Guardar en localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('orono_invoices_history', JSON.stringify(invoicesHistory));
+      localStorage.setItem('orono_customers', JSON.stringify(customers));
     } catch (e) {}
-  }, [invoicesHistory]);
+  }, [customers]);
 
-  // Búsqueda predictiva ultrarrápida en memoria y por código de barras
   useEffect(() => {
-    const handleSearch = async () => {
-      if (searchQuery.trim().length >= 1) {
-        const results = await ProductsService.searchVariantsForPOS(searchQuery);
-        setSearchResults(results);
+    try {
+      localStorage.setItem('orono_invoices_history', JSON.stringify(invoices));
+    } catch (e) {}
+  }, [invoices]);
 
-        if (
-          results.length === 1 &&
-          (results[0].barcode === searchQuery.trim() || results[0].sku?.toLowerCase() === searchQuery.trim().toLowerCase())
-        ) {
-          addToCart(results[0]);
-          setSearchQuery('');
-          setSearchResults([]);
+  // Búsqueda en Directorio de Clientes
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  // Búsqueda en Historial de Facturas
+  const [invoiceSearchQuery, setInvoiceSearchQuery] = useState('');
+
+  // Modales
+  const [showNewInvoiceModal, setShowNewInvoiceModal] = useState(false);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [showViewInvoiceModal, setShowViewInvoiceModal] = useState(false);
+  const [selectedInvoiceToView, setSelectedInvoiceToView] = useState<SaleInvoiceRecord | null>(null);
+  const [selectedCustomerPurchases, setSelectedCustomerPurchases] = useState<CustomerRecord | null>(null);
+
+  // Formulario de Factura de Venta tipo Planilla (Spreadsheet)
+  const [invoiceForm, setInvoiceForm] = useState<{
+    customerId: string;
+    invoiceType: 'A' | 'B' | 'C' | 'REM';
+    invoicePos: string;
+    invoiceNum: string;
+    invoiceNumber: string;
+    date: string;
+    paymentMethod: 'Transferencia' | 'Efectivo' | 'Débito' | 'Crédito' | 'Mercado Pago';
+    discountPercent: number;
+    notes: string;
+    items: SaleInvoiceItem[];
+  }>({
+    customerId: 'CONSUMIDOR_FINAL',
+    invoiceType: 'B',
+    invoicePos: '0001',
+    invoiceNum: '',
+    invoiceNumber: 'B-0001-00000000',
+    date: new Date().toISOString().slice(0, 10),
+    paymentMethod: 'Efectivo',
+    discountPercent: 0,
+    notes: '',
+    items: [],
+  });
+
+  // Buscador rápido de artículos dentro del modal de facturación
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+
+  // Formulario rápido para Nuevo Cliente
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    firstName: '',
+    lastName: '',
+    docType: 'DNI' as 'DNI' | 'CUIT',
+    doc: '',
+    phone: '',
+    email: '',
+  });
+
+  // Generar siguiente número correlativo sugerido
+  const getNextInvoiceNumber = (type: string, pos: string) => {
+    const existingNums = invoices
+      .filter((inv) => inv.invoiceType === type && inv.invoicePos === pos)
+      .map((inv) => parseInt(inv.invoiceNum) || 0);
+    const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 4521;
+    return String(maxNum + 1).padStart(8, '0');
+  };
+
+  // Abrir Modal de Nueva Factura
+  const openNewInvoiceModal = (preselectedCustomerId?: string) => {
+    const defaultPos = '0001';
+    const defaultType = 'B';
+    const nextNum = getNextInvoiceNumber(defaultType, defaultPos);
+
+    setProductSearchQuery('');
+    setInvoiceForm({
+      customerId: preselectedCustomerId || 'CONSUMIDOR_FINAL',
+      invoiceType: defaultType,
+      invoicePos: defaultPos,
+      invoiceNum: nextNum,
+      invoiceNumber: `${defaultType}-${defaultPos}-${nextNum}`,
+      date: new Date().toISOString().slice(0, 10),
+      paymentMethod: 'Efectivo',
+      discountPercent: 0,
+      notes: '',
+      items: [], // Empieza vacía como en recepción
+    });
+    setShowNewInvoiceModal(true);
+  };
+
+  // Filtrado del buscador predictivo de productos dentro del modal
+  const searchResults = useMemo(() => {
+    if (!productSearchQuery.trim()) return [];
+    const q = productSearchQuery.toLowerCase().trim();
+
+    const results: { product: any; variant: ProductVariant }[] = [];
+    for (const p of products) {
+      const pMatch =
+        p.title.toLowerCase().includes(q) ||
+        p.brand.toLowerCase().includes(q) ||
+        (p.category && p.category.toLowerCase().includes(q));
+
+      for (const v of p.variants || []) {
+        const skuMatch = v.sku && v.sku.toLowerCase().includes(q);
+        const varMatch =
+          (v.size && v.size.toLowerCase().includes(q)) ||
+          (v.color && v.color.toLowerCase().includes(q));
+
+        if (pMatch || skuMatch || varMatch) {
+          results.push({ product: p, variant: v });
         }
-      } else {
-        setSearchResults([]);
       }
+    }
+    return results.slice(0, 8);
+  }, [productSearchQuery, products]);
+
+  // Agregar fila desde el buscador interactivo
+  const handleAddProductFromSearch = (product: any, variant: ProductVariant) => {
+    const newItem: SaleInvoiceItem = {
+      id: 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      productId: product.id,
+      productTitle: `[${product.brand}] ${product.title}`,
+      variantId: variant.id,
+      variantDetails: `Talle ${variant.size} (${variant.color})`,
+      quantity: 1,
+      unitPrice: Number(variant.price) || 0,
+      subtotal: Number(variant.price) || 0,
     };
 
-    const timer = setTimeout(handleSearch, 100);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    setInvoiceForm((prev) => ({
+      ...prev,
+      items: [...prev.items, newItem],
+    }));
+    setProductSearchQuery('');
+  };
 
-  const addToCart = (variant: ProductVariant & { product: Product }) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.variant.id === variant.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.variant.id === variant.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prev, { variant, quantity: 1 }];
+  // Agregar fila vacía a la planilla
+  const handleAddInvoiceRow = () => {
+    if (products.length === 0) return;
+    const defaultProduct = products[0];
+    const defaultVariant = defaultProduct.variants?.[0] || { id: 'default', size: 'M', color: 'Negro', price: 0, stock: 0 };
+
+    const newItem: SaleInvoiceItem = {
+      id: 'item-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      productId: defaultProduct.id,
+      productTitle: `[${defaultProduct.brand}] ${defaultProduct.title}`,
+      variantId: defaultVariant.id,
+      variantDetails: `Talle ${defaultVariant.size} (${defaultVariant.color})`,
+      quantity: 1,
+      unitPrice: Number(defaultVariant.price) || 0,
+      subtotal: Number(defaultVariant.price) || 0,
+    };
+
+    setInvoiceForm((prev) => ({
+      ...prev,
+      items: [...prev.items, newItem],
+    }));
+  };
+
+  // Actualizar fila de la planilla
+  const handleUpdateInvoiceRow = (rowId: string, updates: Partial<SaleInvoiceItem>) => {
+    setInvoiceForm((prev) => {
+      const updatedItems = prev.items.map((row) => {
+        if (row.id !== rowId) return row;
+
+        let finalUpdates = { ...updates };
+
+        // Si cambió de producto
+        if (updates.productId && updates.productId !== row.productId) {
+          const newProd = products.find((p) => p.id === updates.productId);
+          if (newProd && newProd.variants?.length > 0) {
+            const firstVar = newProd.variants[0];
+            finalUpdates = {
+              ...finalUpdates,
+              productTitle: `[${newProd.brand}] ${newProd.title}`,
+              variantId: firstVar.id,
+              variantDetails: `Talle ${firstVar.size} (${firstVar.color})`,
+              unitPrice: Number(firstVar.price) || 0,
+              subtotal: (Number(row.quantity) || 1) * (Number(firstVar.price) || 0),
+            };
+          }
+        }
+
+        // Si cambió la variante
+        if (updates.variantId && updates.variantId !== row.variantId) {
+          const currentProd = products.find((p) => p.id === (updates.productId || row.productId));
+          const newVar = currentProd?.variants?.find((v: any) => v.id === updates.variantId);
+          if (newVar) {
+            finalUpdates = {
+              ...finalUpdates,
+              variantDetails: `Talle ${newVar.size} (${newVar.color})`,
+              unitPrice: Number(newVar.price) || 0,
+              subtotal: (Number(row.quantity) || 1) * (Number(newVar.price) || 0),
+            };
+          }
+        }
+
+        const merged = { ...row, ...finalUpdates };
+        merged.subtotal = (Number(merged.quantity) || 0) * (Number(merged.unitPrice) || 0);
+        return merged;
+      });
+
+      return { ...prev, items: updatedItems };
     });
   };
 
-  const updateQuantity = (variantId: string, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.variant.id === variantId) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean) as CartItem[]
-    );
+  // Eliminar fila de la planilla
+  const handleRemoveInvoiceRow = (rowId: string) => {
+    setInvoiceForm((prev) => ({
+      ...prev,
+      items: prev.items.filter((it) => it.id !== rowId),
+    }));
   };
 
-  const removeFromCart = (variantId: string) => {
-    setCart((prev) => prev.filter((item) => item.variant.id !== variantId));
-  };
+  // Cálculos de la Factura
+  const invoiceSubtotal = useMemo(() => {
+    return invoiceForm.items.reduce((acc, it) => acc + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
+  }, [invoiceForm.items]);
 
-  // Cálculos de Totales
-  const subtotal = cart.reduce((acc, item) => acc + item.variant.price * item.quantity, 0);
-  const discountAmount = (subtotal * discountPercent) / 100;
-  const total = subtotal - discountAmount;
+  const discountAmount = useMemo(() => {
+    return (invoiceSubtotal * (invoiceForm.discountPercent || 0)) / 100;
+  }, [invoiceSubtotal, invoiceForm.discountPercent]);
+
+  const invoiceTotal = useMemo(() => {
+    return Math.max(0, invoiceSubtotal - discountAmount);
+  }, [invoiceSubtotal, discountAmount]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -225,823 +568,581 @@ export function PointOfSaleInterface() {
     }).format(val);
   };
 
-  // Procesar Venta, Facturación y Guardar Cliente Automáticamente
-  const handleCheckoutAndInvoice = async () => {
-    if (cart.length === 0) return;
-    setIsProcessing(true);
-
-    try {
-      const fullCustomerName = clientFullName.trim() || 'Consumidor Final';
-      const itemsSummary = cart.map((c) => `${c.variant.product.title} (${c.variant.size})`).join(', ');
-      
-      // Detectar qué bicicletas compró (si corresponde)
-      const bikesBought = cart
-        .filter((c) => {
-          const cat = (c.variant.product.category || '').toUpperCase();
-          return cat !== 'COMPONENTES' && cat !== 'ACCESORIOS';
-        })
-        .map((c) => c.variant.product.title);
-
-      // 1. Crear Orden en POS
-      const orderRes = await OrdersService.createOrder({
-        channel: 'pos',
-        customerName: fullCustomerName,
-        customerEmail: clientEmail,
-        customerPhone: clientPhone,
-        billingType: billingType as any,
-        docType: docType as any,
-        docNumber: docNumber || '0',
-        shippingType: 'local_pickup',
-        paymentMethod,
-        paymentStatus: 'paid',
-        subtotal,
-        discount: discountAmount,
-        total,
-        items: cart.map((c) => ({
-          productVariantId: c.variant.id,
-          title: c.variant.product.title,
-          variantDetails: `Talle ${c.variant.size} - ${c.variant.color}`,
-          quantity: c.quantity,
-          unitPrice: c.variant.price,
-        })),
-      });
-
-      // 2. Si no es simple remito local, emitir comprobante ARCA
-      let arcaResult: any = null;
-      if (billingType === 'FACTURA_A' || billingType === 'FACTURA_B') {
-        arcaResult = await ArcaAfipService.emitInvoice({
-          order: (orderRes.order || { id: `pos-${Date.now()}` }) as any,
-          tipoComprobante: billingType,
-        });
-      }
-
-      const nextNum = Math.floor(4522 + Math.random() * 500);
-      const invoiceIdPrefix = billingType === 'FACTURA_A' ? 'FAC-0001-A' : billingType === 'FACTURA_B' ? 'FAC-0001-B' : 'REM-0001-L';
-      const generatedInvoiceNumber = `${invoiceIdPrefix}0000${nextNum}`;
-      const nowStr = new Date().toLocaleString();
-
-      const newInvoiceRecord: InvoiceRecord = {
-        id: generatedInvoiceNumber,
-        orderNumber: orderRes.order?.order_number || `ORD-${nextNum}`,
-        date: nowStr,
-        type: billingType,
-        customerName: fullCustomerName,
-        customerPhone: clientPhone,
-        customerEmail: clientEmail,
-        doc: docNumber || '0',
-        docType: docType,
-        amount: total,
-        paymentMethod: paymentMethod === 'cash' ? 'Efectivo' : paymentMethod === 'transfer' ? 'Transferencia' : paymentMethod === 'pos_debit' ? 'Débito' : 'Crédito',
-        cae: arcaResult?.cae || (billingType !== 'TICKET_LOCAL' ? `7438920194${Math.floor(1000 + Math.random() * 9000)}` : undefined),
-        caeVto: arcaResult?.caeVto || (billingType !== 'TICKET_LOCAL' ? '2026-09-18' : undefined),
-        itemsSummary,
-        bicyclesBought: bikesBought,
-        status: billingType === 'TICKET_LOCAL' ? 'Emitido Local' : 'Aprobada',
-      };
-
-      // Guardar en Historial de Comprobantes
-      setInvoicesHistory((prev) => [newInvoiceRecord, ...prev]);
-
-      // 3. Guardar / Actualizar Cliente en la Base de Datos de Clientes
-      try {
-        const storedCustomers = JSON.parse(localStorage.getItem('orono_customers') || '[]');
-        const existingIdx = storedCustomers.findIndex((c: any) => c.doc === docNumber && docNumber !== '0' && docNumber.trim() !== '');
-
-        const newPurchaseEntry = {
-          date: nowStr,
-          orderId: newInvoiceRecord.orderNumber,
-          invoiceId: newInvoiceRecord.id,
-          invoiceType: billingType,
-          itemsSummary,
-          bicyclesBought: bikesBought,
-          total,
-        };
-
-        const nameParts = fullCustomerName.split(' ');
-        const firstName = nameParts[0] || 'Cliente';
-        const lastName = nameParts.slice(1).join(' ') || '';
-
-        if (existingIdx >= 0) {
-          const cust = storedCustomers[existingIdx];
-          cust.purchases = [newPurchaseEntry, ...(cust.purchases || [])];
-          cust.totalSpent = (cust.totalSpent || 0) + total;
-          cust.phone = clientPhone || cust.phone;
-          cust.email = clientEmail || cust.email;
-          cust.firstName = firstName;
-          cust.lastName = lastName;
-          storedCustomers[existingIdx] = cust;
-        } else {
-          storedCustomers.unshift({
-            id: `cust-${Date.now()}`,
-            firstName,
-            lastName,
-            phone: clientPhone,
-            email: clientEmail,
-            doc: docNumber || '0',
-            docType,
-            purchases: [newPurchaseEntry],
-            totalSpent: total,
-            createdAt: nowStr,
-          });
-        }
-        localStorage.setItem('orono_customers', JSON.stringify(storedCustomers));
-        window.dispatchEvent(new CustomEvent('customersUpdated'));
-      } catch (custErr) {
-        console.warn('Error saving customer:', custErr);
-      }
-
-      setIssuedInvoice({
-        order: orderRes.order,
-        invoiceNumber: generatedInvoiceNumber,
-        arca: arcaResult,
-        items: cart,
-        total,
-        customerName: fullCustomerName,
-      });
-
-      // Limpiar carro y resetear formulario
-      setCart([]);
-      setDiscountPercent(0);
-      setClientFullName('');
-      setClientPhone('');
-      setClientEmail('');
-      setDocNumber('');
-    } catch (err: any) {
-      alert(`Error al procesar venta POS: ${err?.message}`);
-    } finally {
-      setIsProcessing(false);
+  // Guardar Nuevo Cliente
+  const handleSaveCustomer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomerForm.firstName.trim() || !newCustomerForm.phone.trim()) {
+      alert('Por favor, ingresá al menos el nombre y el teléfono de contacto.');
+      return;
     }
+
+    const created: CustomerRecord = {
+      id: 'cli-' + Date.now(),
+      firstName: newCustomerForm.firstName.trim(),
+      lastName: newCustomerForm.lastName.trim(),
+      phone: newCustomerForm.phone.trim(),
+      email: newCustomerForm.email.trim(),
+      doc: newCustomerForm.doc.trim(),
+      docType: newCustomerForm.docType,
+      purchases: [],
+      totalSpent: 0,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+
+    setCustomers((prev) => [created, ...prev]);
+    setShowAddCustomerModal(false);
+
+    // Si estaba emitiendo una factura, seleccionarlo automáticamente
+    if (showNewInvoiceModal) {
+      setInvoiceForm((prev) => ({
+        ...prev,
+        customerId: created.id,
+      }));
+    }
+
+    setNewCustomerForm({
+      firstName: '',
+      lastName: '',
+      docType: 'DNI',
+      doc: '',
+      phone: '',
+      email: '',
+    });
   };
 
-  // Productos de catálogo filtrados por categoría activa
-  const catalogVariants = useMemo(() => {
-    const list: (ProductVariant & { product: Product })[] = [];
-    ALL_PRODUCTS_CATALOG.forEach((p) => {
-      const isBike = p.category === 'MTB' || p.category === 'RUTA' || p.category === 'GRAVEL' || p.category === 'BMX' || p.category === 'PASEO' || p.category === 'NIÑOS';
-      const isComp = p.category === 'COMPONENTES';
-      const isAcc = p.category === 'ACCESORIOS';
+  // Guardar y Emitir Factura de Venta
+  const handleSaveInvoice = (e: React.FormEvent) => {
+    e.preventDefault();
 
-      if (
-        activeCatalogCategory === 'TODOS' ||
-        (activeCatalogCategory === 'BICICLETAS' && isBike) ||
-        (activeCatalogCategory === 'COMPONENTES' && isComp) ||
-        (activeCatalogCategory === 'ACCESORIOS' && isAcc)
-      ) {
-        p.variants.forEach((v) => {
-          list.push({
-            ...v,
-            product: {
-              id: p.id,
-              title: p.title,
-              slug: p.slug,
-              brand: p.brand,
-              category: p.category,
-              description: p.description,
-              specs: p.specs,
-              images: p.images,
-              is_active: p.is_active,
-              created_at: p.created_at,
-              updated_at: p.updated_at,
-            },
-          });
-        });
+    // 1. Validación: Al menos 1 producto
+    if (invoiceForm.items.length === 0) {
+      alert('⚠️ Para emitir la factura debés ingresar al menos un artículo en la planilla.');
+      return;
+    }
+
+    // 2. Formateo de comprobante
+    const cleanPos = invoiceForm.invoicePos ? invoiceForm.invoicePos.padStart(4, '0') : '0001';
+    const cleanNum = invoiceForm.invoiceNum ? invoiceForm.invoiceNum.padStart(8, '0') : '';
+    if (!cleanNum || cleanNum === '00000000') {
+      alert('⚠️ Por favor ingresá un número de factura válido (hasta 8 dígitos).');
+      return;
+    }
+
+    const fullInvoiceNumber = `${invoiceForm.invoiceType}-${cleanPos}-${cleanNum}`;
+
+    // 3. Validación: Anti-duplicados por número de factura y tipo
+    const exists = invoices.some(
+      (inv) => inv.invoiceNumber.trim().toUpperCase() === fullInvoiceNumber.trim().toUpperCase()
+    );
+    if (exists) {
+      alert(
+        `⚠️ Ya existe una factura registrada con el comprobante N° ${fullInvoiceNumber}. Por favor verifica el número.`
+      );
+      return;
+    }
+
+    // 4. Datos del Cliente
+    let custName = 'Consumidor Final';
+    let custDoc = '99.999.999';
+    let custDocType: 'DNI' | 'CUIT' = 'DNI';
+    let custPhone = '';
+    let custEmail = '';
+
+    if (invoiceForm.customerId !== 'CONSUMIDOR_FINAL') {
+      const found = customers.find((c) => c.id === invoiceForm.customerId);
+      if (found) {
+        custName = `${found.firstName} ${found.lastName}`.trim();
+        custDoc = found.doc || '';
+        custDocType = found.docType || 'DNI';
+        custPhone = found.phone || '';
+        custEmail = found.email || '';
       }
-    });
-    return list;
-  }, [activeCatalogCategory]);
+    }
 
-  // Filtrar Historial de Comprobantes
+    // 5. Generar CAE simulado para Facturas A y B
+    const isAfip = invoiceForm.invoiceType === 'A' || invoiceForm.invoiceType === 'B';
+    const mockCae = isAfip ? String(Math.floor(70000000000000 + Math.random() * 9999999999999)) : undefined;
+    const vtoDate = new Date();
+    vtoDate.setDate(vtoDate.getDate() + 10);
+    const mockCaeVto = isAfip ? vtoDate.toISOString().slice(0, 10) : undefined;
+
+    // 6. Crear Registro de Factura
+    const newInvoiceRecord: SaleInvoiceRecord = {
+      id: `FAC-${fullInvoiceNumber}`,
+      invoiceNumber: fullInvoiceNumber,
+      invoiceType: invoiceForm.invoiceType,
+      invoicePos: cleanPos,
+      invoiceNum: cleanNum,
+      date: invoiceForm.date,
+      customerId: invoiceForm.customerId,
+      customerName: custName,
+      customerDoc: custDoc,
+      customerDocType: custDocType,
+      customerPhone: custPhone,
+      customerEmail: custEmail,
+      paymentMethod: invoiceForm.paymentMethod,
+      items: invoiceForm.items,
+      subtotal: invoiceSubtotal,
+      discountPercent: invoiceForm.discountPercent || 0,
+      discountAmount,
+      totalAmount: invoiceTotal,
+      notes: invoiceForm.notes,
+      cae: mockCae,
+      caeVto: mockCaeVto,
+      status: isAfip ? 'Aprobada' : 'Emitido Local',
+    };
+
+    // 7. Descontar Stock Físico en memoria y localStorage
+    const updatedProducts = products.map((prod) => {
+      const itemsForThisProduct = invoiceForm.items.filter((it) => it.productId === prod.id);
+      if (itemsForThisProduct.length === 0) return prod;
+
+      const updatedVariants = (prod.variants || []).map((v: ProductVariant) => {
+        const itemForVariant = itemsForThisProduct.find((it) => it.variantId === v.id);
+        if (itemForVariant) {
+          const newStock = Math.max(0, (v.stock || 0) - Number(itemForVariant.quantity));
+          return { ...v, stock: newStock };
+        }
+        return v;
+      });
+
+      return { ...prod, variants: updatedVariants };
+    });
+
+    setProducts(updatedProducts);
+    try {
+      localStorage.setItem('orono_custom_bikes', JSON.stringify(updatedProducts));
+    } catch (e) {}
+
+    // 8. Asentar Ingreso Financiero en Caja
+    try {
+      const storedCash = localStorage.getItem('orono_cash_movements');
+      const cashList = storedCash ? JSON.parse(storedCash) : [];
+      const newCashEntry = {
+        id: `cash-${Date.now()}`,
+        date: invoiceForm.date,
+        type: 'in',
+        concept: `Cobro Venta Factura ${fullInvoiceNumber} - ${custName}`,
+        amount: invoiceTotal,
+        paymentMethod: invoiceForm.paymentMethod,
+        invoiceNumber: fullInvoiceNumber,
+      };
+      cashList.unshift(newCashEntry);
+      localStorage.setItem('orono_cash_movements', JSON.stringify(cashList));
+    } catch (e) {}
+
+    // 9. Actualizar Cliente en Directorio (si no es consumidor final anónimo)
+    if (invoiceForm.customerId !== 'CONSUMIDOR_FINAL') {
+      const summaryItems = invoiceForm.items.map((it) => `${it.productTitle} (${it.quantity} u.)`).join(', ');
+      const bikes = invoiceForm.items.map((it) => it.productTitle);
+
+      setCustomers((prev) =>
+        prev.map((c) => {
+          if (c.id === invoiceForm.customerId) {
+            return {
+              ...c,
+              totalSpent: c.totalSpent + invoiceTotal,
+              purchases: [
+                {
+                  date: invoiceForm.date,
+                  orderId: `ORD-${cleanNum}`,
+                  invoiceId: fullInvoiceNumber,
+                  invoiceType: `FACTURA_${invoiceForm.invoiceType}`,
+                  itemsSummary: summaryItems,
+                  bicyclesBought: bikes,
+                  total: invoiceTotal,
+                },
+                ...c.purchases,
+              ],
+            };
+          }
+          return c;
+        })
+      );
+    }
+
+    // 10. Guardar en Historial de Facturas
+    setInvoices((prev) => [newInvoiceRecord, ...prev]);
+
+    // Cerrar modal de emisión y abrir vista previa de factura para descargar/imprimir
+    setShowNewInvoiceModal(false);
+    setSelectedInvoiceToView(newInvoiceRecord);
+    setShowViewInvoiceModal(true);
+  };
+
+  // Filtrado de Clientes en Directorio
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearchQuery.trim()) return customers;
+    const q = customerSearchQuery.toLowerCase().trim();
+    return customers.filter(
+      (c) =>
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
+        c.doc.toLowerCase().includes(q) ||
+        c.phone.includes(q) ||
+        c.email.toLowerCase().includes(q)
+    );
+  }, [customers, customerSearchQuery]);
+
+  // Filtrado de Facturas en Historial
   const filteredInvoices = useMemo(() => {
-    return invoicesHistory.filter((inv) => {
-      if (invoiceFilterType !== 'TODOS' && inv.type !== invoiceFilterType) return false;
-      if (invoiceSearchQuery.trim()) {
-        const q = invoiceSearchQuery.toLowerCase();
-        const matchCust = inv.customerName.toLowerCase().includes(q);
-        const matchId = inv.id.toLowerCase().includes(q);
-        const matchDoc = inv.doc.toLowerCase().includes(q);
-        const matchBikes = inv.bicyclesBought?.some((b) => b.toLowerCase().includes(q));
-        if (!matchCust && !matchId && !matchDoc && !matchBikes) return false;
-      }
-      return true;
-    });
-  }, [invoicesHistory, invoiceFilterType, invoiceSearchQuery]);
+    if (!invoiceSearchQuery.trim()) return invoices;
+    const q = invoiceSearchQuery.toLowerCase().trim();
+    return invoices.filter(
+      (inv) =>
+        inv.invoiceNumber.toLowerCase().includes(q) ||
+        inv.customerName.toLowerCase().includes(q) ||
+        inv.customerDoc.toLowerCase().includes(q) ||
+        inv.items.some((it) => it.productTitle.toLowerCase().includes(q))
+    );
+  }, [invoices, invoiceSearchQuery]);
 
   return (
-    <div className="space-y-8">
-      {/* 1. Terminal POS Mostrador & Cobro */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-2 sm:p-4 bg-zinc-100 min-h-[750px] rounded-3xl">
-        {/* Columna Izquierda: Búsqueda, Escaneo & Grid de Productos (7 Cols) */}
-        <div className="lg:col-span-7 flex flex-col bg-white border border-zinc-200 rounded-3xl p-5 sm:p-6 shadow-xs">
-          {/* Buscador / Scanner Bar */}
-          <div className="relative mb-4">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400 gap-2">
-              <Barcode className="w-5 h-5 text-zinc-500" />
-              <Search className="w-4 h-4 text-zinc-400" />
+    <div className="space-y-8 animate-fadeIn">
+      {/* Header de Facturación de Venta */}
+      <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center">
+              <Receipt className="w-4 h-4" />
             </div>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Escanear código de barras o buscar por modelo, marca (Scott, Volta, Shimano), SKU..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && searchResults.length > 0) {
-                  addToCart(searchResults[0]);
-                  setSearchQuery('');
-                  setSearchResults([]);
-                }
-              }}
-              className="w-full pl-20 pr-4 py-3.5 bg-zinc-50 border-2 border-zinc-200 hover:border-zinc-400 rounded-2xl text-xs sm:text-sm font-medium text-zinc-900 focus:bg-white focus:border-zinc-950 focus:outline-none transition-all shadow-inner"
-              autoFocus
-            />
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSearchResults([]);
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-600 font-bold px-2 py-1 bg-zinc-200 rounded-md"
-              >
-                Limpiar
-              </button>
-            )}
+            <h2 className="text-xl font-heading font-black text-zinc-950">
+              Facturación & Comprobantes de Venta
+            </h2>
           </div>
-
-          {/* Resultados de Búsqueda Activa */}
-          {searchQuery.trim().length > 0 ? (
-            <div className="flex-1 overflow-y-auto mb-2 space-y-2 max-h-[500px] border border-zinc-200 rounded-2xl p-3 bg-zinc-50/50">
-              <div className="text-[11px] font-heading font-bold uppercase text-zinc-500 mb-2 px-1">
-                Resultados encontrados ({searchResults.length}):
-              </div>
-              {searchResults.length === 0 ? (
-                <div className="text-center py-10 text-zinc-400 text-xs font-medium">
-                  No se encontraron artículos con "{searchQuery}". Verifica el código de barras o el nombre.
-                </div>
-              ) : (
-                searchResults.map((variant) => (
-                  <div
-                    key={`${variant.product_id}-${variant.id}`}
-                    onClick={() => {
-                      addToCart(variant);
-                      setSearchQuery('');
-                      setSearchResults([]);
-                    }}
-                    className="p-3 bg-white hover:bg-zinc-950 hover:text-white border border-zinc-200 rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-xs group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={variant.product.images[0] || 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=400&q=80'}
-                        alt={variant.product.title}
-                        className="w-11 h-11 object-cover rounded-lg bg-zinc-100 border border-zinc-200 shrink-0"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="px-1.5 py-0.5 bg-zinc-100 group-hover:bg-zinc-800 group-hover:text-zinc-200 text-[10px] font-heading font-black rounded uppercase text-zinc-700">
-                            {variant.product.brand}
-                          </span>
-                          <h4 className="text-xs sm:text-sm font-heading font-bold leading-tight">
-                            {variant.product.title}
-                          </h4>
-                        </div>
-                        <p className="text-[11px] text-zinc-500 group-hover:text-zinc-300 font-mono mt-0.5">
-                          Talle: <strong>{variant.size}</strong> • Color: {variant.color} • SKU: {variant.sku}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 pl-2">
-                      <span className="text-sm font-mono font-bold block">{formatCurrency(variant.price)}</span>
-                      <span className="text-[10px] font-bold text-emerald-600 group-hover:text-emerald-300">
-                        Stock: {variant.stock} u.
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : (
-            /* Explorador Rápido por Categorías */
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex gap-2 mb-4 border-b border-zinc-200 pb-2">
-                <button
-                  onClick={() => setActiveCatalogCategory('TODOS')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-                    activeCatalogCategory === 'TODOS'
-                      ? 'bg-zinc-950 text-white'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Todos
-                </button>
-                <button
-                  onClick={() => setActiveCatalogCategory('BICICLETAS')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
-                    activeCatalogCategory === 'BICICLETAS'
-                      ? 'bg-zinc-950 text-white'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  <Bike className="w-3.5 h-3.5" /> Bicicletas
-                </button>
-                <button
-                  onClick={() => setActiveCatalogCategory('COMPONENTES')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
-                    activeCatalogCategory === 'COMPONENTES'
-                      ? 'bg-zinc-950 text-white'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  <Wrench className="w-3.5 h-3.5" /> Componentes
-                </button>
-                <button
-                  onClick={() => setActiveCatalogCategory('ACCESORIOS')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
-                    activeCatalogCategory === 'ACCESORIOS'
-                      ? 'bg-zinc-950 text-white'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  <Package className="w-3.5 h-3.5" /> Accesorios
-                </button>
-              </div>
-
-              {/* Grid de Artículos del Catálogo */}
-              <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[460px]">
-                {catalogVariants.map((v) => (
-                  <div
-                    key={`${v.product_id}-${v.id}`}
-                    onClick={() => addToCart(v)}
-                    className="p-3 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-2xl flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.01] active:scale-98"
-                  >
-                    <div className="flex items-start gap-2.5 mb-2">
-                      <img
-                        src={v.product.images[0] || 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=400&q=80'}
-                        alt={v.product.title}
-                        className="w-10 h-10 object-cover rounded-lg bg-zinc-200 shrink-0"
-                      />
-                      <div>
-                        <span className="text-[9px] font-heading font-black text-zinc-500 uppercase block">
-                          {v.product.brand}
-                        </span>
-                        <h4 className="text-xs font-heading font-bold text-zinc-900 line-clamp-2 leading-tight">
-                          {v.product.title}
-                        </h4>
-                      </div>
-                    </div>
-                    <div className="text-[10px] text-zinc-500 font-mono mb-2">
-                      {v.size} • {v.color}
-                    </div>
-                    <div className="flex justify-between items-center pt-2 border-t border-zinc-200/60">
-                      <span className="font-mono font-bold text-xs text-zinc-950">
-                        {formatCurrency(v.price)}
-                      </span>
-                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                        +{v.stock}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <p className="text-xs text-zinc-500 mt-1">
+            Emití facturas y comprobantes oficiales tipo planilla: las cantidades{' '}
+            <strong>se descontarán del stock físico</strong> y el cobro generará un{' '}
+            <strong>ingreso financiero automáticamente</strong> en caja.
+          </p>
         </div>
 
-        {/* Columna Derecha: Carrito, Datos de Cliente, Facturación & Cobro (5 Cols) */}
-        <div className="lg:col-span-5 flex flex-col bg-white border border-zinc-200 rounded-3xl p-5 sm:p-6 shadow-xs justify-between">
-          <div>
-            <div className="flex justify-between items-center border-b border-zinc-200 pb-3 mb-3">
-              <div>
-                <h2 className="font-heading font-black text-base text-zinc-950">Ticket de Venta</h2>
-                <span className="text-[11px] text-zinc-500 font-mono">Bv. Nicasio Oroño 1234</span>
-              </div>
-              {cart.length > 0 && (
-                <button
-                  onClick={() => setCart([])}
-                  className="text-xs text-rose-600 hover:text-rose-700 font-heading font-bold uppercase"
-                >
-                  Vaciar
-                </button>
-              )}
-            </div>
-
-            {/* Items en Carrito */}
-            <div className="max-h-[170px] overflow-y-auto space-y-1.5 mb-3 pr-1">
-              {cart.length === 0 ? (
-                <div className="text-center py-6 text-zinc-400 text-xs">
-                  No hay productos en el ticket actual.<br />
-                  Escanea un código de barras o haz clic en un producto.
-                </div>
-              ) : (
-                cart.map((item) => (
-                  <div
-                    key={item.variant.id}
-                    className="p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl flex items-center justify-between text-xs"
-                  >
-                    <div className="flex-1 pr-2">
-                      <strong className="text-zinc-900 block font-heading">{item.variant.product.title}</strong>
-                      <span className="text-[10px] text-zinc-500 font-mono">
-                        {item.variant.size} • {item.variant.color} • {formatCurrency(item.variant.price)} c/u
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 bg-white border border-zinc-300 rounded-lg p-0.5">
-                        <button
-                          onClick={() => updateQuantity(item.variant.id, -1)}
-                          className="w-5 h-5 flex items-center justify-center font-bold text-zinc-700 hover:bg-zinc-100 rounded"
-                        >
-                          -
-                        </button>
-                        <span className="w-5 text-center font-mono font-bold text-xs">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.variant.id, 1)}
-                          className="w-5 h-5 flex items-center justify-center font-bold text-zinc-700 hover:bg-zinc-100 rounded"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <span className="font-mono font-bold w-18 text-right text-zinc-950">
-                        {formatCurrency(item.variant.price * item.quantity)}
-                      </span>
-                      <button
-                        onClick={() => removeFromCart(item.variant.id)}
-                        className="p-1 text-zinc-400 hover:text-rose-600"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Formulario Integrado de Datos del Cliente */}
-            <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-200 mb-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-700 flex items-center gap-1">
-                  <User className="w-3 h-3 text-zinc-900" /> Datos del Cliente
-                </span>
-                <span className="text-[9px] text-zinc-400 font-bold">
-                  (Opcional • Por defecto Consumidor Final)
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">
-                  Nombre y Apellido / Razón Social
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej. Juan Pérez / Rosario Cycling SRL (Opcional)"
-                  value={clientFullName}
-                  onChange={(e) => setClientFullName(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-4">
-                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">Tipo Doc.</label>
-                  <select
-                    value={docType}
-                    onChange={(e) => setDocType(e.target.value as any)}
-                    className="w-full px-2 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-bold uppercase focus:outline-none"
-                  >
-                    <option value="DNI">DNI</option>
-                    <option value="CUIT">CUIT</option>
-                  </select>
-                </div>
-                <div className="col-span-8">
-                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">N° Documento / CUIT</label>
-                  <input
-                    type="text"
-                    placeholder="Ej. 38450112 / 30-..."
-                    value={docNumber}
-                    onChange={(e) => setDocNumber(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-mono font-bold focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">WhatsApp / Teléfono</label>
-                  <input
-                    type="tel"
-                    placeholder="Ej. 549341555..."
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-mono focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] font-heading font-bold text-zinc-500 uppercase mb-0.5">Email</label>
-                  <input
-                    type="email"
-                    placeholder="cliente@email.com"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sección de Pago, Facturación y Cierre */}
-          <div className="border-t border-zinc-200 pt-3 space-y-3">
-            {/* Tipo de Comprobante */}
-            <div>
-              <label className="block text-[10px] font-heading font-bold uppercase text-zinc-500 mb-1">
-                Tipo de Emisión
-              </label>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setBillingType('FACTURA_B')}
-                  className={`py-2 rounded-xl text-[11px] font-heading font-bold uppercase transition-all ${
-                    billingType === 'FACTURA_B'
-                      ? 'bg-zinc-950 text-white shadow-xs'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Factura B
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingType('FACTURA_A')}
-                  className={`py-2 rounded-xl text-[11px] font-heading font-bold uppercase transition-all ${
-                    billingType === 'FACTURA_A'
-                      ? 'bg-zinc-950 text-white shadow-xs'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Factura A
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingType('TICKET_LOCAL')}
-                  className={`py-2 rounded-xl text-[11px] font-heading font-bold uppercase transition-all ${
-                    billingType === 'TICKET_LOCAL'
-                      ? 'bg-zinc-950 text-white shadow-xs'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Remito / Local
-                </button>
-              </div>
-            </div>
-
-            {/* Medio de Cobro */}
-            <div>
-              <label className="block text-[10px] font-heading font-bold uppercase text-zinc-500 mb-1">
-                Medio de Cobro en Local
-              </label>
-              <div className="grid grid-cols-4 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const discount = PricingService.getSettings().cashDiscountLocalPercent;
-                    setPaymentMethod('cash');
-                    setDiscountPercent(discount);
-                  }}
-                  className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
-                    paymentMethod === 'cash'
-                      ? 'bg-emerald-600 text-white font-black shadow-xs'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Efectivo (-{PricingService.getSettings().cashDiscountLocalPercent}%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentMethod('pos_debit');
-                    setDiscountPercent(0);
-                  }}
-                  className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
-                    paymentMethod === 'pos_debit'
-                      ? 'bg-zinc-950 text-white'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Débito
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentMethod('transfer');
-                    setDiscountPercent(0);
-                  }}
-                  className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
-                    paymentMethod === 'transfer'
-                      ? 'bg-zinc-950 text-white'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Transferencia
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentMethod('pos_credit');
-                    setDiscountPercent(0);
-                  }}
-                  className={`py-2 rounded-xl text-[10px] font-heading font-bold uppercase transition-all ${
-                    paymentMethod === 'pos_credit'
-                      ? 'bg-zinc-950 text-white'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  Crédito
-                </button>
-              </div>
-            </div>
-
-            {/* Totales y Botón Cobrar */}
-            <div className="bg-zinc-50 p-3.5 rounded-2xl border border-zinc-200 space-y-1 text-xs">
-              <div className="flex justify-between text-zinc-500 font-mono">
-                <span>Subtotal:</span>
-                <span>{formatCurrency(subtotal)}</span>
-              </div>
-              {discountPercent > 0 && (
-                <div className="flex justify-between text-emerald-600 font-mono font-bold">
-                  <span>Descuento ({discountPercent}%):</span>
-                  <span>-{formatCurrency(discountAmount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-zinc-950 font-mono font-black text-base pt-1 border-t border-zinc-200">
-                <span>TOTAL:</span>
-                <span>{formatCurrency(total)}</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              disabled={cart.length === 0 || isProcessing}
-              onClick={handleCheckoutAndInvoice}
-              className="w-full bg-zinc-950 hover:bg-zinc-800 disabled:opacity-30 text-white py-3.5 rounded-2xl font-heading text-xs font-black uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-98"
-            >
-              {isProcessing ? 'Emitiendo comprobante...' : (
-                <>
-                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Cobrar {formatCurrency(total)}
-                </>
-              )}
-            </button>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAddCustomerModal(true)}
+            className="px-4 py-2.5 border border-zinc-300 hover:bg-zinc-50 rounded-xl text-xs font-heading font-bold uppercase text-zinc-800 transition-colors flex items-center gap-1.5 shadow-xs"
+          >
+            <Users className="w-3.5 h-3.5" /> + Nuevo Cliente
+          </button>
+          <button
+            onClick={() => openNewInvoiceModal()}
+            className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-md transition-transform active:scale-95"
+          >
+            <Plus className="w-4 h-4" /> Registrar Factura de Venta
+          </button>
         </div>
       </div>
 
-      {/* 2. Historial Unificado de Comprobantes Emitidos con Filtros */}
-      <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
+      {/* Resumen de Ventas / Facturación (KPIs como en Recepción) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
+          <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-500 block mb-1">
+            Clientes en Directorio
+          </span>
+          <div className="text-2xl font-mono font-black text-zinc-950">{customers.length}</div>
+          <span className="text-[11px] text-zinc-500 mt-1 block">Base de compradores registrados</span>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
+          <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-500 block mb-1">
+            Comprobantes Emitidos
+          </span>
+          <div className="text-2xl font-mono font-black text-zinc-950">{invoices.length}</div>
+          <span className="text-[11px] text-zinc-500 mt-1 block">Facturas y remitos con stock descontado</span>
+        </div>
+
+        <div className="bg-zinc-950 text-white p-6 rounded-3xl shadow-xl">
+          <span className="text-[10px] font-heading font-black uppercase tracking-wider text-emerald-400 block mb-1">
+            Total Histórico Facturado
+          </span>
+          <div className="text-2xl font-mono font-black text-white">
+            {formatCurrency(invoices.reduce((acc, inv) => acc + inv.totalAmount, 0))}
+          </div>
+          <span className="text-[11px] text-zinc-400 mt-1 block">Ingresos imputados en caja</span>
+        </div>
+      </div>
+
+      {/* Listado / Directorio de Clientes & Facturación Directa */}
+      <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
+        <div className="p-6 border-b border-zinc-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-50/50">
           <div>
-            <h3 className="text-xl font-heading font-black text-zinc-950 flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-zinc-950" /> Historial de Comprobantes Emitidos (Facturas & Remitos)
-            </h3>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Registro fiscal y comercial de ventas en mostrador con CAE y código QR oficial.
-            </p>
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-zinc-950" />
+              <h3 className="text-base font-heading font-black text-zinc-950">
+                Directorio de Clientes & Cuentas
+              </h3>
+            </div>
+            <span className="text-xs text-zinc-500">
+              Directorio oficial de compradores registrados. Facturá directamente a cualquier cliente desde la tabla.
+            </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold bg-zinc-100 text-zinc-700 px-3 py-1.5 rounded-xl">
-              {filteredInvoices.length} Comprobantes
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, DNI/CUIT..."
+                value={customerSearchQuery}
+                onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+              />
+            </div>
+            <span className="text-xs font-mono font-bold text-zinc-700 bg-white border border-zinc-200 px-3 py-2 rounded-xl whitespace-nowrap shrink-0">
+              {customers.length} {customers.length === 1 ? 'Cliente' : 'Clientes'}
+            </span>
+            <button
+              onClick={() => setShowAddCustomerModal(true)}
+              className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-xs whitespace-nowrap shrink-0 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> + Nuevo Cliente
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-zinc-100/80 border-b border-zinc-200 text-zinc-600 font-heading font-bold uppercase text-[10px] tracking-wider">
+              <tr>
+                <th className="py-3 px-4 min-w-[220px]">Cliente / Razón Social</th>
+                <th className="py-3 px-4 min-w-[130px]">DNI / CUIT</th>
+                <th className="py-3 px-4 min-w-[180px]">Teléfono WhatsApp / Email</th>
+                <th className="py-3 px-4 text-right min-w-[150px]">Total Facturado ($ ARS)</th>
+                <th className="py-3 px-4 text-center w-48">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-200 font-medium">
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-zinc-400">
+                    <Users className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                    <p className="text-xs font-bold text-zinc-600">No se encontraron clientes</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      {customerSearchQuery
+                        ? 'Probá ajustando los términos de búsqueda'
+                        : 'Presioná "+ Nuevo Cliente" para registrar el primero.'}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((cust) => {
+                  const custPurchasesCount = cust.purchases?.length || 0;
+                  const cleanPhone = cust.phone ? cust.phone.replace(/[^0-9]/g, '') : '';
+
+                  return (
+                    <tr key={cust.id} className="hover:bg-zinc-50/80 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-700 shrink-0 font-heading font-black text-xs">
+                            {cust.firstName?.slice(0, 1).toUpperCase()}
+                            {cust.lastName?.slice(0, 1).toUpperCase()}
+                          </div>
+                          <div>
+                            <strong className="font-heading font-bold text-zinc-950 block text-xs">
+                              {cust.firstName} {cust.lastName}
+                            </strong>
+                            <span className="text-[10px] text-zinc-400">Registrado el {cust.createdAt}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-mono text-zinc-700 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded text-[11px] font-semibold">
+                          {cust.docType}: {cust.doc || 'S/D'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-zinc-800 font-mono text-[11px] flex items-center gap-1.5">
+                          {cleanPhone ? (
+                            <a
+                              href={`https://wa.me/${cleanPhone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-emerald-600 hover:text-emerald-700 transition-colors"
+                              title="Enviar WhatsApp"
+                            >
+                              <svg
+                                className="w-3.5 h-3.5 fill-current inline-block"
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                              </svg>
+                            </a>
+                          ) : (
+                            <span>📞</span>
+                          )}
+                          <span>{cust.phone || 'S/D'}</span>
+                        </div>
+                        {cust.email && (
+                          <span
+                            className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[180px]"
+                            title={cust.email}
+                          >
+                            {cust.email}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="font-mono font-bold text-xs text-zinc-950 block">
+                          {formatCurrency(cust.totalSpent)}
+                        </span>
+                        <span className="text-[10px] text-zinc-400 font-sans">
+                          {custPurchasesCount} {custPurchasesCount === 1 ? 'compra registrada' : 'compras registradas'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openNewInvoiceModal(cust.id)}
+                            title={`Emitir factura a ${cust.firstName} ${cust.lastName}`}
+                            className="px-2.5 py-1 bg-zinc-950 hover:bg-zinc-800 text-white rounded-lg text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Facturar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCustomerPurchases(cust)}
+                            title="Ver compras realizadas y descargar comprobantes"
+                            className="px-2.5 py-1 border border-zinc-300 hover:bg-zinc-100 text-zinc-800 rounded-lg text-[10px] font-heading font-bold uppercase transition-colors flex items-center gap-1"
+                          >
+                            <ShoppingBag className="w-3 h-3 text-zinc-500" /> Compras
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Historial de Facturas de Venta & Comprobantes Emitidos */}
+      <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
+        <div className="p-6 border-b border-zinc-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-50/50">
+          <div>
+            <div className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-zinc-950" />
+              <h3 className="text-base font-heading font-black text-zinc-950">
+                Historial de Facturas de Venta y Salidas de Stock
+              </h3>
+            </div>
+            <span className="text-xs text-zinc-500">
+              Detalle de comprobantes oficiales emitidos, mercadería entregada e ingresos registrados en caja.
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-60">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Buscar por N° comprobante o cliente..."
+                value={invoiceSearchQuery}
+                onChange={(e) => setInvoiceSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-white border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+              />
+            </div>
+            <span className="text-xs font-mono font-bold text-zinc-700 bg-white border border-zinc-200 px-3 py-1.5 rounded-xl shrink-0">
+              {invoices.length} Comprobantes
             </span>
           </div>
         </div>
 
-        {/* Barra de Búsqueda y Filtros por Tipo */}
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <button
-              onClick={() => setInvoiceFilterType('TODOS')}
-              className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
-                invoiceFilterType === 'TODOS'
-                  ? 'bg-zinc-950 text-white shadow-xs'
-                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-              }`}
-            >
-              Todos los Comprobantes
-            </button>
-            <button
-              onClick={() => setInvoiceFilterType('FACTURA_A')}
-              className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
-                invoiceFilterType === 'FACTURA_A'
-                  ? 'bg-zinc-950 text-white shadow-xs'
-                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-              }`}
-            >
-              Facturas A
-            </button>
-            <button
-              onClick={() => setInvoiceFilterType('FACTURA_B')}
-              className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
-                invoiceFilterType === 'FACTURA_B'
-                  ? 'bg-zinc-950 text-white shadow-xs'
-                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-              }`}
-            >
-              Facturas B
-            </button>
-            <button
-              onClick={() => setInvoiceFilterType('TICKET_LOCAL')}
-              className={`px-4 py-2 rounded-xl text-xs font-heading font-bold uppercase transition-all ${
-                invoiceFilterType === 'TICKET_LOCAL'
-                  ? 'bg-zinc-950 text-white shadow-xs'
-                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-              }`}
-            >
-              Remitos / Local
-            </button>
-          </div>
-
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Buscar por cliente, CUIT/DNI, comprobante..."
-              value={invoiceSearchQuery}
-              onChange={(e) => setInvoiceSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Tabla de Comprobantes */}
-        <div className="overflow-x-auto border border-zinc-200 rounded-2xl">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-zinc-100/80 border-b border-zinc-200 text-zinc-600 font-heading font-bold uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="py-3 px-4">Comprobante / Fecha</th>
-                <th className="py-3 px-4">Tipo</th>
-                <th className="py-3 px-4">Cliente & Documento</th>
-                <th className="py-3 px-4">Artículos / Bici</th>
-                <th className="py-3 px-4">Medio de Pago</th>
-                <th className="py-3 px-4 text-right">Total ($ ARS)</th>
-                <th className="py-3 px-4 text-right">Acción</th>
+                <th className="py-3 px-4 min-w-[160px]">N° Comprobante / Fecha</th>
+                <th className="py-3 px-4 min-w-[180px]">Cliente</th>
+                <th className="py-3 px-4 min-w-[280px]">Mercadería Facturada (Stock -)</th>
+                <th className="py-3 px-4 min-w-[130px]">Medio de Pago</th>
+                <th className="py-3 px-4 text-right min-w-[140px]">Total Cobrado ($ ARS)</th>
+                <th className="py-3 px-4 text-center w-36">Comprobante</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 font-medium">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-zinc-400">
-                    No se encontraron comprobantes con los filtros seleccionados.
+                  <td colSpan={6} className="py-12 text-center text-zinc-400">
+                    <Receipt className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                    <p className="text-xs font-bold text-zinc-600">No se registraron comprobantes aún</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      Hacé clic en "+ Registrar Factura de Venta" para emitir la primera.
+                    </p>
                   </td>
                 </tr>
               ) : (
                 filteredInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-zinc-50/80 transition-colors">
                     <td className="py-3 px-4">
-                      <strong className="font-mono text-zinc-950 block">{inv.id}</strong>
-                      <span className="text-[10px] text-zinc-400 font-mono">{inv.date}</span>
-                      {inv.cae && (
-                        <span className="text-[9px] text-zinc-500 font-mono block">CAE: {inv.cae}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-heading font-black uppercase ${
-                          inv.type === 'FACTURA_A'
-                            ? 'bg-purple-100 text-purple-800'
-                            : inv.type === 'FACTURA_B'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-zinc-100 text-zinc-700'
-                        }`}
-                      >
-                        {inv.type === 'FACTURA_A' ? 'Factura A' : inv.type === 'FACTURA_B' ? 'Factura B' : 'Remito Local'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <strong className="text-zinc-900 block font-heading">{inv.customerName}</strong>
-                      <span className="text-[10px] text-zinc-500 font-mono">
-                        {inv.docType}: {inv.doc} • Tel: {inv.customerPhone}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 max-w-xs truncate text-zinc-700" title={inv.itemsSummary}>
-                      {inv.bicyclesBought && inv.bicyclesBought.length > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-heading font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                          <Bike className="w-3 h-3" /> {inv.bicyclesBought.join(', ')}
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`font-heading font-black text-[10px] px-1.5 py-0.5 rounded border ${
+                            inv.invoiceType === 'A'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : inv.invoiceType === 'B'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-zinc-100 text-zinc-700 border-zinc-300'
+                          }`}
+                        >
+                          FC {inv.invoiceType}
                         </span>
-                      ) : (
-                        inv.itemsSummary
+                        <strong className="font-mono text-zinc-950">{inv.invoiceNumber}</strong>
+                      </div>
+                      <span className="text-[10px] text-zinc-400 font-mono mt-0.5 block">{inv.date}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <strong className="font-heading font-bold text-zinc-800 block text-xs">
+                        {inv.customerName}
+                      </strong>
+                      {inv.customerDoc && (
+                        <span className="text-[10px] text-zinc-400 font-mono">
+                          {inv.customerDocType}: {inv.customerDoc}
+                        </span>
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      <span className="bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded text-[10px] font-heading font-bold">
+                      <div className="space-y-1">
+                        {inv.items.map((it, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5">
+                            <span className="text-rose-700 font-bold bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded text-[10px]">
+                              -{it.quantity} u.
+                            </span>
+                            <span className="text-zinc-800 font-medium">
+                              {it.productTitle} {it.variantDetails ? `(${it.variantDetails})` : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center gap-1 text-zinc-700 font-mono text-[11px] bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200">
                         {inv.paymentMethod}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-sm text-zinc-950">
-                      {formatCurrency(inv.amount)}
-                    </td>
                     <td className="py-3 px-4 text-right">
+                      <span className="font-mono font-black text-xs text-zinc-950 block">
+                        {formatCurrency(inv.totalAmount)}
+                      </span>
+                      {inv.discountPercent > 0 && (
+                        <span className="text-[10px] text-emerald-600 font-bold font-sans">
+                          Desc. {inv.discountPercent}%
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-center">
                       <button
+                        type="button"
                         onClick={() => {
-                          window.print();
+                          setSelectedInvoiceToView(inv);
+                          setShowViewInvoiceModal(true);
                         }}
-                        className="p-1.5 text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 rounded-lg transition-colors inline-flex items-center gap-1 text-[10px] font-heading font-bold"
-                        title="Imprimir Comprobante"
+                        className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-heading font-bold flex items-center gap-1.5 mx-auto transition-colors border border-zinc-200 shadow-2xs"
+                        title="Ver y descargar comprobante oficial"
                       >
-                        <Printer className="w-3.5 h-3.5" /> Reimprimir
+                        <FileText className="w-3.5 h-3.5 text-zinc-600" />
+                        <span>Descargar</span>
                       </button>
                     </td>
                   </tr>
@@ -1052,54 +1153,929 @@ export function PointOfSaleInterface() {
         </div>
       </div>
 
-      {/* Modal de Comprobante Emitido */}
-      {issuedInvoice && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn text-center">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
-              <CheckCircle className="w-10 h-10" />
-            </div>
-            <h3 className="text-xl font-heading font-black text-zinc-950 mb-1">
-              ¡Venta Registrada Exitosamente!
-            </h3>
-            <p className="text-xs text-zinc-500 mb-4 font-mono">
-              Comprobante #{issuedInvoice.invoiceNumber}
-            </p>
+      {/* ========================================================================= */}
+      {/* MODAL 1: PLANILLA DE EMISIÓN DE FACTURA DE VENTA (Similar a Recepción) */}
+      {/* ========================================================================= */}
+      {showNewInvoiceModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-5 sm:p-8 max-w-5xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto max-h-[94vh] flex flex-col relative">
+            {/* Modal Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-zinc-200 gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center">
+                    <Receipt className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xl font-heading font-black text-zinc-950 tracking-tight">
+                    Planilla de Emisión de Factura de Venta
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">
+                  Ingresá los artículos de la venta tipo planilla: las cantidades{' '}
+                  <strong>se descontarán del stock físico</strong> y el total generará un{' '}
+                  <strong>ingreso financiero</strong> en caja.
+                </p>
+              </div>
 
-            <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-200 text-left text-xs space-y-1.5 mb-6">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Cliente:</span>
-                <strong className="text-zinc-950">{issuedInvoice.customerName}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Monto Cobrado:</span>
-                <strong className="font-mono text-zinc-950">{formatCurrency(issuedInvoice.total)}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Medio de Pago:</span>
-                <span className="font-bold text-zinc-800 uppercase">{paymentMethod}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Tipo Comprobante:</span>
-                <span className="font-bold text-zinc-800">{billingType}</span>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomerModal(true)}
+                  className="border border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-xs font-heading font-bold uppercase px-3 py-2 rounded-xl flex items-center gap-1.5 transition-colors"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>+ Nuevo Cliente</span>
+                </button>
+                <button
+                  onClick={() => setShowNewInvoiceModal(false)}
+                  className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-xl hover:bg-zinc-100 transition-colors"
+                  title="Cerrar"
+                >
+                  <span className="text-lg font-bold">✕</span>
+                </button>
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <form onSubmit={handleSaveInvoice} className="flex flex-col flex-1 overflow-hidden pt-4 gap-4">
+              <div className="overflow-y-auto pr-1 space-y-4 flex-1">
+                {/* Cabecera de la Factura: Cliente, Comprobante dividido, Fecha y Medio de Pago */}
+                <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+                  {/* 1. Cliente (4 cols) */}
+                  <div className="lg:col-span-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
+                        Cliente / Titular *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCustomerModal(true)}
+                        className="text-[10px] font-heading font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5"
+                        title="Registrar nuevo cliente en el directorio"
+                      >
+                        <Plus className="w-3 h-3" /> + Nuevo Cliente
+                      </button>
+                    </div>
+                    <select
+                      value={invoiceForm.customerId}
+                      onChange={(e) => {
+                        if (e.target.value === 'NEW_CUSTOMER') {
+                          setShowAddCustomerModal(true);
+                        } else {
+                          setInvoiceForm({ ...invoiceForm, customerId: e.target.value });
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                    >
+                      <option value="CONSUMIDOR_FINAL">👤 Consumidor Final (Venta Mostrador)</option>
+                      {customers.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.firstName} {c.lastName} ({c.docType}: {c.doc || 'S/D'})
+                        </option>
+                      ))}
+                      <option value="NEW_CUSTOMER" className="font-bold text-emerald-700 bg-emerald-50">
+                        + Agregar Nuevo Cliente a la Lista...
+                      </option>
+                    </select>
+                  </div>
+
+                  {/* 2. Factura Dividida: Tipo, Punto de Venta y Número (4 cols) */}
+                  <div className="lg:col-span-4">
+                    <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                      Comprobante: Tipo · Pto. Venta · Número *
+                    </label>
+                    <div className="grid grid-cols-12 gap-1.5 items-center">
+                      {/* Tipo */}
+                      <div className="col-span-3">
+                        <select
+                          value={invoiceForm.invoiceType}
+                          onChange={(e) => {
+                            const t = e.target.value as any;
+                            const pos = invoiceForm.invoicePos ? invoiceForm.invoicePos.padStart(4, '0') : '0001';
+                            const nextNum = getNextInvoiceNumber(t, pos);
+                            setInvoiceForm({
+                              ...invoiceForm,
+                              invoiceType: t,
+                              invoiceNum: nextNum,
+                              invoiceNumber: `${t}-${pos}-${nextNum}`,
+                            });
+                          }}
+                          className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-heading font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                        >
+                          <option value="B">FC B</option>
+                          <option value="A">FC A</option>
+                          <option value="C">FC C</option>
+                          <option value="REM">REM</option>
+                        </select>
+                      </div>
+
+                      {/* Punto de Venta (4 dígitos con auto-relleno de ceros) */}
+                      <div className="col-span-4 relative">
+                        <input
+                          type="text"
+                          maxLength={4}
+                          required
+                          placeholder="0001"
+                          value={invoiceForm.invoicePos}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            setInvoiceForm({
+                              ...invoiceForm,
+                              invoicePos: raw,
+                            });
+                          }}
+                          onBlur={() => {
+                            const raw = invoiceForm.invoicePos.replace(/[^0-9]/g, '');
+                            const padded = raw ? raw.padStart(4, '0') : '0001';
+                            const num = invoiceForm.invoiceNum ? invoiceForm.invoiceNum.padStart(8, '0') : '00000001';
+                            setInvoiceForm({
+                              ...invoiceForm,
+                              invoicePos: padded,
+                              invoiceNumber: `${invoiceForm.invoiceType}-${padded}-${num}`,
+                            });
+                          }}
+                          className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          title="Punto de venta (4 dígitos, se completan ceros automáticamente)"
+                        />
+                      </div>
+
+                      {/* Número de Factura (8 dígitos con auto-relleno de ceros) */}
+                      <div className="col-span-5 relative">
+                        <input
+                          type="text"
+                          maxLength={8}
+                          required
+                          placeholder="00012345"
+                          value={invoiceForm.invoiceNum}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            setInvoiceForm({
+                              ...invoiceForm,
+                              invoiceNum: raw,
+                            });
+                          }}
+                          onBlur={() => {
+                            const raw = invoiceForm.invoiceNum.replace(/[^0-9]/g, '');
+                            const padded = raw ? raw.padStart(8, '0') : '';
+                            const pos = invoiceForm.invoicePos ? invoiceForm.invoicePos.padStart(4, '0') : '0001';
+                            setInvoiceForm({
+                              ...invoiceForm,
+                              invoiceNum: padded,
+                              invoiceNumber: `${invoiceForm.invoiceType}-${pos}-${padded || '00000000'}`,
+                            });
+                          }}
+                          className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          title="Número de comprobante (hasta 8 dígitos, se completan ceros automáticamente)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Fecha Factura (2 cols) */}
+                  <div className="lg:col-span-2">
+                    <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                      Fecha Factura *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={invoiceForm.date}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, date: e.target.value })}
+                      className="w-full px-2.5 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                    />
+                  </div>
+
+                  {/* 4. Medio de Pago (2 cols) */}
+                  <div className="lg:col-span-2">
+                    <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                      Medio de Pago *
+                    </label>
+                    <select
+                      value={invoiceForm.paymentMethod}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, paymentMethod: e.target.value as any })}
+                      className="w-full px-2.5 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                    >
+                      <option value="Efectivo">Efectivo Caja</option>
+                      <option value="Transferencia">Transferencia</option>
+                      <option value="Débito">Tarjeta Débito</option>
+                      <option value="Crédito">Tarjeta Crédito</option>
+                      <option value="Mercado Pago">Mercado Pago</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Buscador Rápido de Producto por Descripción / Código SKU */}
+                <div className="relative">
+                  <div className="relative flex items-center">
+                    <Search className="w-4 h-4 absolute left-3.5 text-zinc-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="🔍 Buscar artículo por descripción, nombre o código SKU (ej: Spark, Cuadro Volta, Cadena Shimano, Casco, etc)..."
+                      value={productSearchQuery}
+                      onChange={(e) => setProductSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-9 py-2.5 bg-white border-2 border-zinc-200 focus:border-zinc-950 rounded-2xl text-xs font-medium placeholder:text-zinc-400 focus:outline-none shadow-xs transition-colors"
+                    />
+                    {productSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setProductSearchQuery('')}
+                        className="absolute right-3.5 text-zinc-400 hover:text-zinc-700 text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Desplegable de Resultados de Búsqueda */}
+                  {searchResults.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-2xl shadow-2xl z-30 max-h-64 overflow-y-auto divide-y divide-zinc-100 animate-fadeIn">
+                      <div className="px-3.5 py-2 bg-zinc-50 text-[10px] font-heading font-bold uppercase text-zinc-500 tracking-wider flex justify-between items-center">
+                        <span>Coincidencias encontradas ({searchResults.length})</span>
+                        <span className="text-zinc-400">Clic en un artículo para agregarlo a la planilla</span>
+                      </div>
+                      {searchResults.map(({ product, variant }) => (
+                        <div
+                          key={`${product.id}-${variant.id}`}
+                          onClick={() => handleAddProductFromSearch(product, variant)}
+                          className="p-2.5 hover:bg-zinc-50 flex items-center justify-between cursor-pointer transition-colors group"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-[10px] font-mono font-bold bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded border border-zinc-200 group-hover:bg-zinc-950 group-hover:text-white transition-colors">
+                              {variant.sku || 'SIN CÓD'}
+                            </span>
+                            <div>
+                              <div className="text-xs font-bold text-zinc-950">
+                                [{product.brand}] {product.title}
+                              </div>
+                              <div className="text-[11px] text-zinc-500">
+                                Talle: <span className="font-semibold text-zinc-700">{variant.size}</span> ({variant.color}) · Stock disponible:{' '}
+                                <span className="font-mono font-bold text-emerald-700">{variant.stock || 0} u.</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-xs font-mono font-bold text-zinc-950 block">
+                              {formatCurrency(Number(variant.price) || 0)}
+                            </span>
+                            <span className="text-[10px] text-emerald-600 font-bold uppercase group-hover:underline">
+                              + Cargar a Planilla
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Planilla de Artículos a Facturar (Spreadsheet) */}
+                <div className="border border-zinc-200 rounded-2xl overflow-hidden shadow-xs">
+                  <div className="bg-zinc-100/90 px-4 py-2.5 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-zinc-800" />
+                      <span className="font-heading font-bold text-xs uppercase tracking-wider text-zinc-900">
+                        Planilla de Artículos a Facturar
+                      </span>
+                      <span className="bg-white border border-zinc-300 text-zinc-700 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
+                        {invoiceForm.items.length} {invoiceForm.items.length === 1 ? 'artículo' : 'artículos'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddInvoiceRow}
+                      className="bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-heading font-bold uppercase px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Agregar Artículo
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto max-h-[380px] bg-white">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-heading font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2.5 px-3 text-center w-10">#</th>
+                          <th className="py-2.5 px-3 min-w-[280px]">Artículo / Producto</th>
+                          <th className="py-2.5 px-3 min-w-[180px]">Talle / Variante</th>
+                          <th className="py-2.5 px-3 text-center w-24">Stock Disp.</th>
+                          <th className="py-2.5 px-3 text-center w-28">Cant. a Facturar</th>
+                          <th className="py-2.5 px-3 text-right min-w-[140px]">Precio Unit. ($ ARS)</th>
+                          <th className="py-2.5 px-3 text-right min-w-[140px]">Subtotal ($ ARS)</th>
+                          <th className="py-2.5 px-3 text-center w-12"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200">
+                        {invoiceForm.items.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="py-12 px-4 text-center bg-white">
+                              <div className="max-w-md mx-auto flex flex-col items-center justify-center text-zinc-400 gap-2">
+                                <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 mb-1">
+                                  <Layers className="w-5 h-5" />
+                                </div>
+                                <p className="text-xs font-heading font-bold text-zinc-700 uppercase tracking-wide">
+                                  Planilla de factura vacía
+                                </p>
+                                <p className="text-[11px] text-zinc-500 leading-relaxed">
+                                  Buscá artículos arriba por descripción o código SKU, o hacé clic en{' '}
+                                  <strong className="text-zinc-800 font-bold">+ Agregar Artículo</strong> para comenzar a cargar la factura.
+                                </p>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          invoiceForm.items.map((row, index) => {
+                            const currentProduct = products.find((p) => p.id === row.productId) || products[0];
+                            const currentVariant =
+                              currentProduct?.variants?.find((v: any) => v.id === row.variantId) ||
+                              currentProduct?.variants?.[0];
+                            const availableStock = currentVariant?.stock ?? 0;
+                            const isStockLow = row.quantity > availableStock;
+
+                            return (
+                              <tr key={row.id} className="hover:bg-zinc-50/80 transition-colors">
+                                <td className="py-2.5 px-3 font-mono text-xs font-bold text-zinc-400 text-center">
+                                  {index + 1}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <select
+                                    value={row.productId}
+                                    onChange={(e) => handleUpdateInvoiceRow(row.id, { productId: e.target.value })}
+                                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                  >
+                                    {products.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        [{p.brand}] {p.title}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <select
+                                    value={row.variantId}
+                                    onChange={(e) => handleUpdateInvoiceRow(row.id, { variantId: e.target.value })}
+                                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                  >
+                                    {currentProduct?.variants?.map((v: any) => (
+                                      <option key={v.id} value={v.id}>
+                                        {v.size} ({v.color}) {v.sku ? `— Cód: ${v.sku}` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span
+                                    className={`inline-block px-2 py-0.5 text-[11px] font-mono font-bold rounded-md ${
+                                      availableStock > 0
+                                        ? 'bg-zinc-100 text-zinc-700'
+                                        : 'bg-rose-100 text-rose-700'
+                                    }`}
+                                  >
+                                    {availableStock} u.
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    required
+                                    value={row.quantity}
+                                    onChange={(e) =>
+                                      handleUpdateInvoiceRow(row.id, {
+                                        quantity: Math.max(1, parseInt(e.target.value) || 1),
+                                      })
+                                    }
+                                    className={`w-full px-2 py-1.5 text-center font-mono font-bold bg-white border rounded-lg text-xs focus:outline-none focus:ring-1 ${
+                                      isStockLow
+                                        ? 'border-amber-500 text-amber-900 bg-amber-50/50'
+                                        : 'border-zinc-300 text-zinc-950 focus:ring-zinc-950'
+                                    }`}
+                                    title={isStockLow ? 'Atención: la cantidad a facturar supera el stock actual disponible' : ''}
+                                  />
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="relative">
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-400">
+                                      $
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      required
+                                      value={row.unitPrice || ''}
+                                      onChange={(e) =>
+                                        handleUpdateInvoiceRow(row.id, {
+                                          unitPrice: Math.max(0, parseInt(e.target.value) || 0),
+                                        })
+                                      }
+                                      className="w-full pl-6 pr-2 py-1.5 font-mono font-bold text-right bg-white border border-zinc-300 rounded-lg text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                    />
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-xs text-zinc-950">
+                                  {formatCurrency(row.subtotal)}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveInvoiceRow(row.id)}
+                                    title="Eliminar renglón"
+                                    className="p-1 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Barra de Totales de la Planilla */}
+                  <div className="bg-zinc-50 border-t border-zinc-200 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAddInvoiceRow}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 text-zinc-800 rounded-xl text-xs font-heading font-bold uppercase transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> + Agregar Otro Artículo
+                    </button>
+
+                    <div className="flex flex-wrap items-center gap-2.5 text-xs font-heading">
+                      <div className="bg-white border border-zinc-200 px-3 py-1.5 rounded-xl text-zinc-700">
+                        <span className="text-zinc-500 font-bold uppercase mr-1.5 text-[10px]">Líneas:</span>
+                        <strong className="font-mono">{invoiceForm.items.length}</strong>
+                      </div>
+
+                      <div className="bg-white border border-zinc-200 px-3 py-1.5 rounded-xl text-zinc-700">
+                        <span className="text-zinc-500 font-bold uppercase mr-1.5 text-[10px]">Total Bultos:</span>
+                        <strong className="font-mono text-rose-700">
+                          -{invoiceForm.items.reduce((acc, it) => acc + (Number(it.quantity) || 0), 0)} u.
+                        </strong>
+                      </div>
+
+                      {/* Descuento Opcional */}
+                      <div className="bg-white border border-zinc-200 px-3 py-1 rounded-xl text-zinc-700 flex items-center gap-1.5">
+                        <span className="text-zinc-500 font-bold uppercase text-[10px]">Desc (%):</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={invoiceForm.discountPercent || ''}
+                          onChange={(e) =>
+                            setInvoiceForm({
+                              ...invoiceForm,
+                              discountPercent: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)),
+                            })
+                          }
+                          placeholder="0"
+                          className="w-12 text-center font-mono font-bold text-xs bg-zinc-50 border border-zinc-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                        />
+                      </div>
+
+                      {/* Total Factura destacado */}
+                      <div className="bg-emerald-50 border border-emerald-200 px-3.5 py-1.5 rounded-xl text-emerald-800 flex items-center gap-2 shadow-2xs">
+                        <span className="text-emerald-700 font-bold uppercase text-[10px]">Total Factura:</span>
+                        <strong className="font-mono text-sm sm:text-base font-black text-emerald-800">
+                          {formatCurrency(invoiceTotal)}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Observaciones Opcionales */}
+                <div>
+                  <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                    Observaciones / Notas del Comprobante (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Retira en local / Envío pactado por expreso / Garantía cuadro 2 años..."
+                    value={invoiceForm.notes}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-zinc-200">
+                <span className="text-[11px] text-zinc-500 hidden sm:inline">
+                  Al confirmar, se descontará el stock de cada artículo y se asentará el ingreso financiero en la caja.
+                </span>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewInvoiceModal(false)}
+                    className="px-4 py-2 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={invoiceForm.items.length === 0}
+                    className="px-5 py-2 bg-zinc-950 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-heading font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all active:scale-95"
+                  >
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <span>Confirmar y Emitir Factura</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: NUEVO CLIENTE */}
+      {/* ========================================================================= */}
+      {showAddCustomerModal && (
+        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+                <h3 className="text-lg font-heading font-black text-zinc-950">Nuevo Cliente</h3>
+              </div>
               <button
-                onClick={() => setIssuedInvoice(null)}
-                className="flex-1 py-3 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50"
+                type="button"
+                onClick={() => setShowAddCustomerModal(false)}
+                className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-xl hover:bg-zinc-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCustomer} className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                    Nombre / Razón Social *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: Juan"
+                    value={newCustomerForm.firstName}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, firstName: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                    Apellido
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Pérez"
+                    value={newCustomerForm.lastName}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, lastName: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-4">
+                  <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                    Tipo Doc
+                  </label>
+                  <select
+                    value={newCustomerForm.docType}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, docType: e.target.value as any })}
+                    className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold text-center focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                  >
+                    <option value="DNI">DNI</option>
+                    <option value="CUIT">CUIT</option>
+                  </select>
+                </div>
+                <div className="col-span-8">
+                  <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                    Número de Documento
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: 38.450.112"
+                    value={newCustomerForm.doc}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, doc: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                  Teléfono / WhatsApp *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: 5493415551234"
+                  value={newCustomerForm.phone}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                  Email (Opcional)
+                </label>
+                <input
+                  type="email"
+                  placeholder="Ej: cliente@correo.com"
+                  value={newCustomerForm.email}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomerModal(false)}
+                  className="px-4 py-2 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-heading font-bold uppercase shadow-sm"
+                >
+                  Guardar Cliente
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: COMPRAS REALIZADAS POR EL CLIENTE */}
+      {/* ========================================================================= */}
+      {selectedCustomerPurchases && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-200">
+              <div>
+                <h3 className="text-lg font-heading font-black text-zinc-950">
+                  Historial de Compras de {selectedCustomerPurchases.firstName} {selectedCustomerPurchases.lastName}
+                </h3>
+                <span className="text-xs text-zinc-500">
+                  {selectedCustomerPurchases.docType}: {selectedCustomerPurchases.doc || 'S/D'} · Total Gastado:{' '}
+                  <strong className="text-zinc-950 font-mono">
+                    {formatCurrency(selectedCustomerPurchases.totalSpent)}
+                  </strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCustomerPurchases(null)}
+                className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-xl hover:bg-zinc-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-y-auto py-4 space-y-3 flex-1">
+              {selectedCustomerPurchases.purchases?.length === 0 ? (
+                <div className="text-center py-10 text-zinc-400">
+                  <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                  <p className="text-xs font-bold text-zinc-600">Este cliente aún no tiene compras registradas</p>
+                </div>
+              ) : (
+                selectedCustomerPurchases.purchases?.map((p, idx) => {
+                  const matchingInvoice = invoices.find(
+                    (inv) => inv.invoiceNumber === p.invoiceId || inv.id === p.invoiceId
+                  );
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-xs text-zinc-950">
+                            {p.invoiceId || p.orderId}
+                          </span>
+                          <span className="text-[10px] text-zinc-400 font-mono">{p.date}</span>
+                        </div>
+                        <p className="text-xs text-zinc-700 font-medium mt-1">{p.itemsSummary}</p>
+                      </div>
+
+                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                        <span className="font-mono font-black text-xs text-zinc-950">
+                          {formatCurrency(p.total)}
+                        </span>
+                        {matchingInvoice && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedInvoiceToView(matchingInvoice);
+                              setShowViewInvoiceModal(true);
+                            }}
+                            className="px-3 py-1.5 bg-white border border-zinc-300 hover:bg-zinc-100 text-zinc-800 rounded-xl text-xs font-heading font-bold uppercase transition-colors flex items-center gap-1 shadow-2xs"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-zinc-600" />
+                            <span>Descargar</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-zinc-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedCustomerPurchases(null)}
+                className="px-4 py-2 bg-zinc-950 text-white rounded-xl text-xs font-heading font-bold uppercase"
               >
                 Cerrar
               </button>
-              <button
-                onClick={() => {
-                  window.print();
-                }}
-                className="flex-1 bg-zinc-950 text-white py-3 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 flex items-center justify-center gap-1.5 shadow-md"
-              >
-                <Printer className="w-4 h-4" /> Imprimir Ticket
-              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: VISUALIZACIÓN / IMPRESIÓN OFICIAL DE FACTURA O REMITO (PDF) */}
+      {/* ========================================================================= */}
+      {showViewInvoiceModal && selectedInvoiceToView && (
+        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-3xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto flex flex-col">
+            {/* Header de controles de la factura */}
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 mb-6 print:hidden">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <h4 className="font-heading font-black text-sm text-zinc-950">
+                    Comprobante Fiscal Oficial · OROÑO BIKE
+                  </h4>
+                  <span className="text-[11px] text-zinc-500">
+                    Estado: <strong className="text-emerald-700">{selectedInvoiceToView.status}</strong>
+                    {selectedInvoiceToView.cae && ` · CAE: ${selectedInvoiceToView.cae}`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-heading font-bold uppercase flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir / PDF</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowViewInvoiceModal(false)}
+                  className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-xl hover:bg-zinc-100"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Documento Imprimible de Factura / Remito */}
+            <div className="border border-zinc-300 p-6 sm:p-8 rounded-2xl bg-white text-zinc-900 font-sans space-y-6 shadow-xs">
+              {/* Encabezado Fiscal */}
+              <div className="grid grid-cols-12 border-b border-zinc-300 pb-5 items-center">
+                <div className="col-span-5 space-y-1">
+                  <h2 className="text-xl font-heading font-black tracking-tight text-zinc-950">OROÑO BIKE</h2>
+                  <p className="text-[11px] text-zinc-600 font-medium">Bicicletería, Taller & Boutique Ciclista</p>
+                  <p className="text-[10px] text-zinc-500">Bv. Nicasio Oroño 1234, Rosario, Santa Fe</p>
+                  <p className="text-[10px] text-zinc-500">IVA Responsable Inscripto</p>
+                </div>
+
+                {/* Letra de Comprobante Central */}
+                <div className="col-span-2 flex flex-col items-center justify-center">
+                  <div className="w-12 h-12 border-2 border-zinc-950 rounded-xl flex items-center justify-center font-heading font-black text-2xl text-zinc-950">
+                    {selectedInvoiceToView.invoiceType}
+                  </div>
+                  <span className="text-[9px] font-heading font-bold uppercase text-zinc-500 mt-1">
+                    CÓD. {selectedInvoiceToView.invoiceType === 'A' ? '01' : selectedInvoiceToView.invoiceType === 'B' ? '06' : '91'}
+                  </span>
+                </div>
+
+                <div className="col-span-5 text-right space-y-1 font-mono">
+                  <h3 className="text-sm font-heading font-black uppercase text-zinc-950 font-sans">
+                    {selectedInvoiceToView.invoiceType === 'REM' ? 'REMITO OFICIAL' : 'FACTURA'}
+                  </h3>
+                  <div className="text-xs font-black text-zinc-900">
+                    N° {selectedInvoiceToView.invoiceNumber}
+                  </div>
+                  <div className="text-[11px] text-zinc-600 font-sans">
+                    Fecha de Emisión: <strong>{selectedInvoiceToView.date}</strong>
+                  </div>
+                  <div className="text-[10px] text-zinc-500">CUIT: 30-71829304-8</div>
+                  <div className="text-[10px] text-zinc-500">Ing. Brutos: 902-124921-2</div>
+                </div>
+              </div>
+
+              {/* Datos del Cliente */}
+              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-zinc-400 block">Cliente:</span>
+                  <strong className="text-zinc-950 block truncate">{selectedInvoiceToView.customerName}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-zinc-400 block">
+                    {selectedInvoiceToView.customerDocType || 'DNI/CUIT'}:
+                  </span>
+                  <span className="font-mono text-zinc-800">{selectedInvoiceToView.customerDoc || 'Consumidor Final'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-zinc-400 block">Condición IVA:</span>
+                  <span className="text-zinc-800">
+                    {selectedInvoiceToView.invoiceType === 'A' ? 'Responsable Inscripto' : 'Consumidor Final'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-zinc-400 block">Medio de Pago:</span>
+                  <span className="font-semibold text-zinc-900">{selectedInvoiceToView.paymentMethod}</span>
+                </div>
+              </div>
+
+              {/* Detalle de Artículos */}
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="border-y border-zinc-300 text-zinc-600 font-heading font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="py-2 px-2 text-center w-12">Cant</th>
+                    <th className="py-2 px-2">Descripción del Artículo / Modelo</th>
+                    <th className="py-2 px-2 text-right w-28">Precio Unit.</th>
+                    <th className="py-2 px-2 text-right w-32">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 font-medium">
+                  {selectedInvoiceToView.items.map((it, idx) => (
+                    <tr key={idx}>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold">{it.quantity}</td>
+                      <td className="py-2.5 px-2">
+                        <strong className="text-zinc-950 block">{it.productTitle}</strong>
+                        {it.variantDetails && (
+                          <span className="text-[11px] text-zinc-500 font-normal">{it.variantDetails}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-2 text-right font-mono">{formatCurrency(it.unitPrice)}</td>
+                      <td className="py-2.5 px-2 text-right font-mono font-bold text-zinc-950">
+                        {formatCurrency(it.subtotal)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Totales y Pie */}
+              <div className="border-t border-zinc-300 pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                {/* Código QR AFIP y CAE */}
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 bg-white border border-zinc-300 rounded-lg p-1 flex items-center justify-center">
+                    <QrCode className="w-14 h-14 text-zinc-950" />
+                  </div>
+                  <div className="text-[10px] space-y-0.5 text-zinc-600 font-mono">
+                    {selectedInvoiceToView.cae && (
+                      <div>
+                        CAE N°: <strong>{selectedInvoiceToView.cae}</strong>
+                      </div>
+                    )}
+                    {selectedInvoiceToView.caeVto && (
+                      <div>
+                        Fecha Vto. CAE: <strong>{selectedInvoiceToView.caeVto}</strong>
+                      </div>
+                    )}
+                    <div className="text-[9px] text-zinc-400 font-sans">
+                      Comprobante Autorizado por AFIP / ARCA
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subtotal y Total */}
+                <div className="w-full sm:w-64 space-y-1 text-xs">
+                  <div className="flex justify-between text-zinc-600 font-medium">
+                    <span>Subtotal Neto:</span>
+                    <span className="font-mono">{formatCurrency(selectedInvoiceToView.subtotal)}</span>
+                  </div>
+                  {selectedInvoiceToView.discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-medium">
+                      <span>Descuento ({selectedInvoiceToView.discountPercent}%):</span>
+                      <span className="font-mono">-{formatCurrency(selectedInvoiceToView.discountAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-zinc-300 pt-1 text-sm font-heading font-black text-zinc-950">
+                    <span>TOTAL:</span>
+                    <span className="font-mono text-base">{formatCurrency(selectedInvoiceToView.totalAmount)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
