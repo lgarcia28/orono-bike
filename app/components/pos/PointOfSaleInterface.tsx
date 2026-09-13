@@ -387,6 +387,7 @@ export function PointOfSaleInterface() {
   // Buscador y desplegable de cliente en el modal de facturación
   const [customerComboboxQuery, setCustomerComboboxQuery] = useState('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [isInvoiceNumFocused, setIsInvoiceNumFocused] = useState(false);
   const customerDropdownRef = useRef<HTMLDivElement>(null);
 
   // Cerrar desplegable de clientes al hacer clic fuera
@@ -1553,15 +1554,21 @@ export function PointOfSaleInterface() {
                         </select>
                       </div>
 
-                      {/* Número de Factura */}
+                      {/* Número de Factura con prefijo 'N' a la izquierda y color gris claro si es el sugerido/ejemplo */}
                       <div className="col-span-5 relative flex items-center h-10">
+                        <span className="absolute left-2.5 text-xs font-mono font-black text-zinc-400 select-none pointer-events-none">
+                          N
+                        </span>
                         <input
                           type="text"
                           maxLength={8}
                           required
-                          placeholder="00012345"
+                          placeholder={getNextInvoiceNumber(invoiceForm.invoiceType, invoiceForm.invoicePos || '0001')}
                           value={invoiceForm.invoiceNum}
-                          onFocus={(e) => e.target.select()}
+                          onFocus={(e) => {
+                            setIsInvoiceNumFocused(true);
+                            e.target.select();
+                          }}
                           onClick={(e) => e.currentTarget.select()}
                           onChange={(e) => {
                             const raw = e.target.value.replace(/[^0-9]/g, '');
@@ -1571,6 +1578,7 @@ export function PointOfSaleInterface() {
                             });
                           }}
                           onBlur={() => {
+                            setIsInvoiceNumFocused(false);
                             const raw = invoiceForm.invoiceNum.replace(/[^0-9]/g, '');
                             const pos = invoiceForm.invoicePos || '0001';
                             const fallback = getNextInvoiceNumber(invoiceForm.invoiceType, pos);
@@ -1581,7 +1589,11 @@ export function PointOfSaleInterface() {
                               invoiceNumber: `${invoiceForm.invoiceType}-${pos}-${padded}`,
                             });
                           }}
-                          className="w-full h-10 pl-2 pr-7 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          className={`w-full h-10 pl-6 pr-7 bg-white border border-zinc-300 rounded-xl text-xs font-mono text-center focus:outline-none focus:ring-1 focus:ring-zinc-950 placeholder:text-zinc-400 ${
+                            isInvoiceNumFocused || (invoiceForm.invoiceNum && invoiceForm.invoiceNum !== getNextInvoiceNumber(invoiceForm.invoiceType, invoiceForm.invoicePos || '0001'))
+                              ? 'text-zinc-900 font-black'
+                              : 'text-zinc-400 font-bold'
+                          }`}
                           title="Número de comprobante: hacé clic para reemplazarlo directamente o borralo con ✕"
                         />
                         {invoiceForm.invoiceNum && (
