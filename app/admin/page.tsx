@@ -104,7 +104,7 @@ export interface SupplierRecord {
   contactPerson: string;
   phone: string;
   email: string;
-  category: string;
+  category?: string;
   totalPurchased: number;
 }
 
@@ -136,7 +136,6 @@ const DEFAULT_SUPPLIERS: SupplierRecord[] = [
     contactPerson: 'Mariano Dalsanto',
     phone: '5491145558800',
     email: 'ventas@dalsantoscott.com.ar',
-    category: 'Bicicletas Scott & Syncros',
     totalPurchased: 28500000,
   },
   {
@@ -146,7 +145,6 @@ const DEFAULT_SUPPLIERS: SupplierRecord[] = [
     contactPerson: 'Carlos Vedia',
     phone: '5491148889900',
     email: 'pedidos@shimanodistribucion.com.ar',
-    category: 'Grupos Transmisión & Frenos',
     totalPurchased: 14200000,
   },
   {
@@ -156,7 +154,6 @@ const DEFAULT_SUPPLIERS: SupplierRecord[] = [
     contactPerson: 'Esteban Rossi',
     phone: '5493415551122',
     email: 'contacto@voltabikes.com.ar',
-    category: 'Bicicletas Carbono & MTB',
     totalPurchased: 9800000,
   },
   {
@@ -166,7 +163,6 @@ const DEFAULT_SUPPLIERS: SupplierRecord[] = [
     contactPerson: 'Gustavo Bianchi',
     phone: '5491147771234',
     email: 'distribucion@raleigh.com.ar',
-    category: 'Bicicletas Mojave & Accesorios',
     totalPurchased: 6400000,
   },
   {
@@ -176,7 +172,6 @@ const DEFAULT_SUPPLIERS: SupplierRecord[] = [
     contactPerson: 'Nicolás Ferrero',
     phone: '5493514889911',
     email: 'info@sarsbikes.com.ar',
-    category: 'Bicicletas de Ruta & Gravel',
     totalPurchased: 8900000,
   },
 ];
@@ -406,8 +401,8 @@ export default function AdminDashboardPage() {
     contactPerson: '',
     phone: '',
     email: '',
-    category: 'Bicicletas & Componentes',
   });
+  const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
 
   // Estado de Gestión de Servicios de Taller (CRUD)
   const [workshopSubTab, setWorkshopSubTab] = useState<'turnos' | 'servicios'>('turnos');
@@ -812,6 +807,20 @@ export default function AdminDashboardPage() {
     return results.slice(0, 8);
   }, [products, receptionProductSearch]);
 
+  // Filtrado de proveedores en el listado
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierSearchQuery.trim()) return suppliers;
+    const q = supplierSearchQuery.toLowerCase().trim();
+    return suppliers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.cuit.toLowerCase().includes(q) ||
+        s.contactPerson.toLowerCase().includes(q) ||
+        s.phone.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q)
+    );
+  }, [suppliers, supplierSearchQuery]);
+
   const handleAddProductFromSearch = (product: ProductWithVariants, variant: ProductVariant) => {
     const cost = variant.cost || Math.round((variant.price || 0) / 1.5);
     setReceptionForm((prev) => {
@@ -893,7 +902,6 @@ export default function AdminDashboardPage() {
           contactPerson: 'Contacto Facturación',
           phone: '00000000',
           email: 'facturas@proveedor.com.ar',
-          category: 'General',
           totalPurchased: 0,
         };
         const updatedSuppliers = [...suppliers, autoSupplier];
@@ -1311,7 +1319,6 @@ export default function AdminDashboardPage() {
       contactPerson: newSupplierForm.contactPerson.trim() || 'Contacto',
       phone: newSupplierForm.phone.trim() || '00000000',
       email: newSupplierForm.email.trim() || 'proveedor@oronobike.com.ar',
-      category: newSupplierForm.category,
       totalPurchased: 0,
     };
 
@@ -1330,8 +1337,17 @@ export default function AdminDashboardPage() {
       contactPerson: '',
       phone: '',
       email: '',
-      category: 'Bicicletas & Componentes',
     });
+  };
+
+  const handleDeleteSupplier = (id: string, name: string) => {
+    if (confirm(`¿Estás seguro de que deseas eliminar al proveedor "${name}"?`)) {
+      const updated = suppliers.filter((s) => s.id !== id);
+      setSuppliers(updated);
+      try {
+        localStorage.setItem('orono_suppliers', JSON.stringify(updated));
+      } catch (err) {}
+    }
   };
 
   // ========================================================
@@ -2507,31 +2523,147 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Base de Datos de Proveedores */}
-            <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs p-6 space-y-4">
-              <h3 className="font-heading font-black text-base text-zinc-950 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-zinc-700" /> Base de Datos de Proveedores & Distribuidores
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {suppliers.map((sup) => (
-                  <div key={sup.id} className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-2">
-                    <div className="flex justify-between items-start">
-                      <strong className="text-sm font-heading font-black text-zinc-950 block">{sup.name}</strong>
-                      <span className="text-[9px] bg-zinc-200 text-zinc-700 font-bold px-1.5 py-0.5 rounded">
-                        CUIT: {sup.cuit}
-                      </span>
-                    </div>
-                    <div className="text-xs text-zinc-600 space-y-0.5">
-                      <div><strong>Contacto:</strong> {sup.contactPerson} ({sup.phone})</div>
-                      <div><strong>Rubro:</strong> {sup.category}</div>
-                    </div>
-                    <div className="pt-2 border-t border-zinc-200/60 flex justify-between items-center text-xs">
-                      <span className="text-zinc-500 text-[10px] uppercase font-bold">Total Comprado:</span>
-                      <strong className="font-mono text-zinc-950 font-bold">{formatCurrency(sup.totalPurchased)}</strong>
-                    </div>
+            {/* Listado de Proveedores & Distribuidores */}
+            <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
+              <div className="p-6 border-b border-zinc-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-50/50">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-zinc-950" />
+                    <h3 className="text-base font-heading font-black text-zinc-950">
+                      Listado de Proveedores & Distribuidores
+                    </h3>
                   </div>
-                ))}
+                  <span className="text-xs text-zinc-500">
+                    Directorio oficial de proveedores registrados para compras y facturación de mercadería.
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-64">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre, CUIT, contacto..."
+                      value={supplierSearchQuery}
+                      onChange={(e) => setSupplierSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                    />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-zinc-700 bg-white border border-zinc-200 px-3 py-2 rounded-xl whitespace-nowrap shrink-0">
+                    {suppliers.length} {suppliers.length === 1 ? 'Proveedor' : 'Proveedores'}
+                  </span>
+                  <button
+                    onClick={() => setShowAddSupplierModal(true)}
+                    className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-bold uppercase px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-xs whitespace-nowrap shrink-0 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> + Nuevo Proveedor
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-100/80 border-b border-zinc-200 text-zinc-600 font-heading font-bold uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4 min-w-[220px]">Proveedor / Razón Social</th>
+                      <th className="py-3 px-4 min-w-[130px]">CUIT</th>
+                      <th className="py-3 px-4 min-w-[150px]">Persona de Contacto</th>
+                      <th className="py-3 px-4 min-w-[160px]">Teléfono / Email</th>
+                      <th className="py-3 px-4 text-right min-w-[150px]">Total Comprado ($ ARS)</th>
+                      <th className="py-3 px-4 text-center w-36">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200 font-medium">
+                    {filteredSuppliers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-10 text-center text-zinc-400">
+                          <Building2 className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                          <p className="text-xs font-bold text-zinc-600">No se encontraron proveedores</p>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            {supplierSearchQuery
+                              ? 'Probá ajustando los términos de búsqueda'
+                              : 'Presioná "+ Nuevo Proveedor" para registrar el primero.'}
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSuppliers.map((sup) => {
+                        const supInvoicesCount = receptions.filter(
+                          (r) =>
+                            r.supplierId === sup.id ||
+                            r.supplierName.trim().toLowerCase() === sup.name.trim().toLowerCase()
+                        ).length;
+
+                        return (
+                          <tr key={sup.id} className="hover:bg-zinc-50/80 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-700 shrink-0 font-heading font-black text-xs">
+                                  {sup.name.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div>
+                                  <strong className="font-heading font-bold text-zinc-950 block text-xs">
+                                    {sup.name}
+                                  </strong>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-mono text-zinc-700 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded text-[11px] font-semibold">
+                                {sup.cuit}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-zinc-800">
+                              {sup.contactPerson}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="text-zinc-800 font-mono text-[11px] flex items-center gap-1">
+                                <span>📞</span>
+                                <span>{sup.phone}</span>
+                              </div>
+                              {sup.email && (
+                                <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[180px]" title={sup.email}>
+                                  {sup.email}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className="font-mono font-bold text-xs text-zinc-950 block">
+                                {formatCurrency(sup.totalPurchased)}
+                              </span>
+                              <span className="text-[10px] text-zinc-400 font-sans">
+                                {supInvoicesCount} {supInvoicesCount === 1 ? 'factura registrada' : 'facturas registradas'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    openNewReceptionModal();
+                                    setReceptionForm((prev) => ({ ...prev, supplierId: sup.id }));
+                                  }}
+                                  title={`Cargar factura de ${sup.name}`}
+                                  className="px-2.5 py-1 bg-zinc-950 hover:bg-zinc-800 text-white rounded-lg text-[10px] font-heading font-bold uppercase transition-colors"
+                                >
+                                  + Factura
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSupplier(sup.id, sup.name)}
+                                  title="Eliminar proveedor"
+                                  className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 
