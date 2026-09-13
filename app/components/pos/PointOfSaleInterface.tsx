@@ -1321,11 +1321,11 @@ export function PointOfSaleInterface() {
             <form onSubmit={handleSaveInvoice} className="flex flex-col flex-1 overflow-hidden pt-4 gap-4">
               <div className="overflow-y-auto pr-1 space-y-4 flex-1">
                 {/* Cabecera de la Factura: Cliente, Comprobante dividido, Fecha y Medio de Pago */}
-                <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
-                  {/* 1. Cliente / Titular con Buscador Predictivo por Nombre, Apellido o DNI/CUIT */}
+                <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-start">
+                  {/* 1. Cliente / Titular (4 cols) */}
                   <div className="lg:col-span-4 relative" ref={customerDropdownRef}>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
+                    <div className="h-6 flex items-center justify-between mb-1.5">
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 truncate">
                         Cliente / Titular *
                       </label>
                       <button
@@ -1337,10 +1337,10 @@ export function PointOfSaleInterface() {
                           }));
                           setShowAddCustomerModal(true);
                         }}
-                        className="text-[10px] font-heading font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5"
+                        className="text-[10px] font-heading font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5 shrink-0 ml-1"
                         title="Registrar nuevo cliente en el directorio"
                       >
-                        <Plus className="w-3 h-3" /> + Nuevo Cliente
+                        <Plus className="w-3 h-3" /> Nuevo Cliente
                       </button>
                     </div>
 
@@ -1348,12 +1348,12 @@ export function PointOfSaleInterface() {
                       <Search className="w-3.5 h-3.5 absolute left-3 text-zinc-400 pointer-events-none" />
                       <input
                         type="text"
-                        placeholder="🔍 Buscar por nombre, apellido o DNI..."
+                        placeholder="Buscar por nombre, apellido o DNI..."
                         value={
                           isCustomerDropdownOpen
                             ? customerComboboxQuery
                             : invoiceForm.customerId === 'CONSUMIDOR_FINAL'
-                            ? '👤 Consumidor Final (Venta Mostrador)'
+                            ? 'Consumidor Final (Venta Mostrador)'
                             : (() => {
                                 const found = customers.find((c) => c.id === invoiceForm.customerId);
                                 return found
@@ -1374,7 +1374,7 @@ export function PointOfSaleInterface() {
                           setCustomerComboboxQuery(e.target.value);
                           setIsCustomerDropdownOpen(true);
                         }}
-                        className="w-full pl-8.5 pr-8 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950 truncate"
+                        className="w-full h-10 pl-9 pr-8 bg-white border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950 truncate"
                       />
                       {(invoiceForm.customerId !== 'CONSUMIDOR_FINAL' || customerComboboxQuery) && (
                         <button
@@ -1490,11 +1490,11 @@ export function PointOfSaleInterface() {
                     )}
                   </div>
 
-                  {/* 2. Factura Dividida: Tipo, Punto de Venta (Botones 1 y 2) y Número editable */}
+                  {/* 2. Comprobante: Tipo · Pto. Venta · Número (4 cols) */}
                   <div className="lg:col-span-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
-                        Comprobante: Tipo · Pto. Venta · Número *
+                    <div className="h-6 flex items-center justify-between mb-1.5">
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 truncate">
+                        Comprobante (Tipo · PV · N°) *
                       </label>
                       <button
                         type="button"
@@ -1506,7 +1506,7 @@ export function PointOfSaleInterface() {
                             invoiceNumber: `${prev.invoiceType}-${prev.invoicePos}-${suggested}`,
                           }));
                         }}
-                        className="text-[10px] font-mono text-zinc-500 hover:text-zinc-900 transition-colors"
+                        className="text-[10px] font-mono text-zinc-400 hover:text-zinc-800 transition-colors shrink-0 ml-1"
                         title="Restaurar número correlativo sugerido automáticamente"
                       >
                         N° Sugerido
@@ -1529,7 +1529,7 @@ export function PointOfSaleInterface() {
                               invoiceNumber: `${t}-${pos}-${nextNum}`,
                             });
                           }}
-                          className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-heading font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          className="w-full h-10 px-1 bg-white border border-zinc-300 rounded-xl text-xs font-heading font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
                         >
                           <option value="B">FC B</option>
                           <option value="A">FC A</option>
@@ -1543,7 +1543,7 @@ export function PointOfSaleInterface() {
                         <select
                           value={invoiceForm.invoicePos}
                           onChange={(e) => handleSelectPos(e.target.value)}
-                          className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          className="w-full h-10 px-1 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
                         >
                           <option value="0001">PV 0001</option>
                           <option value="0002">PV 0002</option>
@@ -1553,8 +1553,8 @@ export function PointOfSaleInterface() {
                         </select>
                       </div>
 
-                      {/* Número de Factura: Auto-selección al hacer clic y botón ✕ para borrar directo */}
-                      <div className="col-span-5 relative flex items-center">
+                      {/* Número de Factura */}
+                      <div className="col-span-5 relative flex items-center h-10">
                         <input
                           type="text"
                           maxLength={8}
@@ -1581,7 +1581,7 @@ export function PointOfSaleInterface() {
                               invoiceNumber: `${invoiceForm.invoiceType}-${pos}-${padded}`,
                             });
                           }}
-                          className="w-full pl-2 pr-6 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          className="w-full h-10 pl-2 pr-7 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
                           title="Número de comprobante: hacé clic para reemplazarlo directamente o borralo con ✕"
                         />
                         {invoiceForm.invoiceNum && (
@@ -1593,7 +1593,7 @@ export function PointOfSaleInterface() {
                                 invoiceNum: '',
                               });
                             }}
-                            className="absolute right-1.5 text-zinc-400 hover:text-zinc-700 p-0.5 rounded-full hover:bg-zinc-100 text-xs font-bold"
+                            className="absolute right-2 text-zinc-400 hover:text-zinc-700 p-0.5 rounded-full hover:bg-zinc-100 text-xs font-bold"
                             title="Borrar para escribir un número nuevo"
                           >
                             ✕
@@ -1605,27 +1605,31 @@ export function PointOfSaleInterface() {
 
                   {/* 3. Fecha Factura (2 cols) */}
                   <div className="lg:col-span-2">
-                    <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
-                      Fecha Factura *
-                    </label>
+                    <div className="h-6 flex items-center mb-1.5">
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 truncate">
+                        Fecha Factura *
+                      </label>
+                    </div>
                     <input
                       type="date"
                       required
                       value={invoiceForm.date}
                       onChange={(e) => setInvoiceForm({ ...invoiceForm, date: e.target.value })}
-                      className="w-full px-2.5 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                      className="w-full h-10 px-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-bold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
                     />
                   </div>
 
                   {/* 4. Medio de Pago (2 cols) */}
                   <div className="lg:col-span-2">
-                    <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
-                      Medio de Pago *
-                    </label>
+                    <div className="h-6 flex items-center mb-1.5">
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 truncate">
+                        Medio de Pago *
+                      </label>
+                    </div>
                     <select
                       value={invoiceForm.paymentMethod}
                       onChange={(e) => setInvoiceForm({ ...invoiceForm, paymentMethod: e.target.value as any })}
-                      className="w-full px-2.5 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                      className="w-full h-10 px-2.5 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
                     >
                       <option value="Efectivo">Efectivo Caja</option>
                       <option value="Transferencia">Transferencia</option>
