@@ -660,6 +660,20 @@ export default function CheckoutPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Nota de entrega / Aclaraciones del envío (Opcional) */}
+                  <div className="pt-1">
+                    <label className="block text-[10px] font-heading font-bold uppercase text-zinc-600 mb-1">
+                      Nota de Entrega / Aclaraciones (Opcional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Ej: Dejar en portería, timbre que no anda, referencias entre calles, etc."
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="w-full p-2.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium text-zinc-900 resize-none focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                    />
+                  </div>
                 </div>
               )}
             </div>
