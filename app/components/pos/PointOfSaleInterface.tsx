@@ -382,6 +382,25 @@ export function PointOfSaleInterface() {
   // Buscador rápido de artículos dentro del modal de facturación
   const [productSearchQuery, setProductSearchQuery] = useState('');
 
+  // Buscador y desplegable de cliente en el modal de facturación
+  const [customerComboboxQuery, setCustomerComboboxQuery] = useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const customerDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar desplegable de clientes al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        customerDropdownRef.current &&
+        !customerDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsCustomerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Formulario rápido para Nuevo Cliente
   const [newCustomerForm, setNewCustomerForm] = useState({
     firstName: '',
@@ -407,9 +426,10 @@ export function PointOfSaleInterface() {
     const defaultType = 'B';
     const nextNum = getNextInvoiceNumber(defaultType, defaultPos);
 
+    const initialCustId = preselectedCustomerId || 'CONSUMIDOR_FINAL';
     setProductSearchQuery('');
     setInvoiceForm({
-      customerId: preselectedCustomerId || 'CONSUMIDOR_FINAL',
+      customerId: initialCustId,
       invoiceType: defaultType,
       invoicePos: defaultPos,
       invoiceNum: nextNum,
@@ -420,8 +440,28 @@ export function PointOfSaleInterface() {
       notes: '',
       items: [], // Empieza vacía como en recepción
     });
+
+    if (initialCustId === 'CONSUMIDOR_FINAL') {
+      setCustomerComboboxQuery('');
+    } else {
+      const found = customers.find((c) => c.id === initialCustId);
+      setCustomerComboboxQuery(found ? `${found.firstName} ${found.lastName}` : '');
+    }
+    setIsCustomerDropdownOpen(false);
     setShowNewInvoiceModal(true);
   };
+
+  // Filtrado de clientes dentro del combobox de facturación por Nombre, Apellido, DNI o Teléfono
+  const filteredCustomerOptions = useMemo(() => {
+    if (!customerComboboxQuery.trim()) return customers;
+    const q = customerComboboxQuery.toLowerCase().trim();
+    return customers.filter(
+      (c) =>
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
+        c.doc.toLowerCase().includes(q) ||
+        c.phone.includes(q)
+    );
+  }, [customers, customerComboboxQuery]);
 
   // Filtrado del buscador predictivo de productos dentro del modal
   const searchResults = useMemo(() => {
@@ -598,6 +638,8 @@ export function PointOfSaleInterface() {
         ...prev,
         customerId: created.id,
       }));
+      setCustomerComboboxQuery(`${created.firstName} ${created.lastName}`);
+      setIsCustomerDropdownOpen(false);
     }
 
     setNewCustomerForm({
@@ -1200,42 +1242,172 @@ export function PointOfSaleInterface() {
               <div className="overflow-y-auto pr-1 space-y-4 flex-1">
                 {/* Cabecera de la Factura: Cliente, Comprobante dividido, Fecha y Medio de Pago */}
                 <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
-                  {/* 1. Cliente (4 cols) */}
-                  <div className="lg:col-span-4">
+                  {/* 1. Cliente / Titular con Buscador Predictivo por Nombre, Apellido o DNI/CUIT */}
+                  <div className="lg:col-span-4 relative" ref={customerDropdownRef}>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
                         Cliente / Titular *
                       </label>
                       <button
                         type="button"
-                        onClick={() => setShowAddCustomerModal(true)}
+                        onClick={() => {
+                          setNewCustomerForm((prev) => ({
+                            ...prev,
+                            firstName: customerComboboxQuery.trim(),
+                          }));
+                          setShowAddCustomerModal(true);
+                        }}
                         className="text-[10px] font-heading font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5"
                         title="Registrar nuevo cliente en el directorio"
                       >
                         <Plus className="w-3 h-3" /> + Nuevo Cliente
                       </button>
                     </div>
-                    <select
-                      value={invoiceForm.customerId}
-                      onChange={(e) => {
-                        if (e.target.value === 'NEW_CUSTOMER') {
-                          setShowAddCustomerModal(true);
-                        } else {
-                          setInvoiceForm({ ...invoiceForm, customerId: e.target.value });
+
+                    <div className="relative flex items-center">
+                      <Search className="w-3.5 h-3.5 absolute left-3 text-zinc-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="🔍 Buscar por nombre, apellido o DNI..."
+                        value={
+                          isCustomerDropdownOpen
+                            ? customerComboboxQuery
+                            : invoiceForm.customerId === 'CONSUMIDOR_FINAL'
+                            ? '👤 Consumidor Final (Venta Mostrador)'
+                            : (() => {
+                                const found = customers.find((c) => c.id === invoiceForm.customerId);
+                                return found
+                                  ? `${found.firstName} ${found.lastName} (${found.docType}: ${found.doc || 'S/D'})`
+                                  : customerComboboxQuery;
+                              })()
                         }
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
-                    >
-                      <option value="CONSUMIDOR_FINAL">👤 Consumidor Final (Venta Mostrador)</option>
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.firstName} {c.lastName} ({c.docType}: {c.doc || 'S/D'})
-                        </option>
-                      ))}
-                      <option value="NEW_CUSTOMER" className="font-bold text-emerald-700 bg-emerald-50">
-                        + Agregar Nuevo Cliente a la Lista...
-                      </option>
-                    </select>
+                        onFocus={() => {
+                          setIsCustomerDropdownOpen(true);
+                          if (invoiceForm.customerId !== 'CONSUMIDOR_FINAL') {
+                            const found = customers.find((c) => c.id === invoiceForm.customerId);
+                            if (found) setCustomerComboboxQuery(`${found.firstName} ${found.lastName}`);
+                          } else {
+                            setCustomerComboboxQuery('');
+                          }
+                        }}
+                        onChange={(e) => {
+                          setCustomerComboboxQuery(e.target.value);
+                          setIsCustomerDropdownOpen(true);
+                        }}
+                        className="w-full pl-8.5 pr-8 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950 truncate"
+                      />
+                      {(invoiceForm.customerId !== 'CONSUMIDOR_FINAL' || customerComboboxQuery) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInvoiceForm((prev) => ({ ...prev, customerId: 'CONSUMIDOR_FINAL' }));
+                            setCustomerComboboxQuery('');
+                          }}
+                          className="absolute right-2.5 text-zinc-400 hover:text-zinc-700 p-0.5 rounded-full hover:bg-zinc-100 text-xs font-bold"
+                          title="Restablecer a Consumidor Final"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Desplegable de búsqueda de clientes */}
+                    {isCustomerDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-2xl shadow-2xl z-40 max-h-64 overflow-y-auto divide-y divide-zinc-100 animate-fadeIn">
+                        {/* Opción 1: Consumidor Final */}
+                        <div
+                          onClick={() => {
+                            setInvoiceForm((prev) => ({ ...prev, customerId: 'CONSUMIDOR_FINAL' }));
+                            setCustomerComboboxQuery('');
+                            setIsCustomerDropdownOpen(false);
+                          }}
+                          className={`p-2.5 hover:bg-zinc-50 cursor-pointer flex items-center justify-between transition-colors ${
+                            invoiceForm.customerId === 'CONSUMIDOR_FINAL' ? 'bg-zinc-100/70 font-bold' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">👤</span>
+                            <div>
+                              <div className="text-xs font-bold text-zinc-900">Consumidor Final</div>
+                              <div className="text-[10px] text-zinc-500">Venta mostrador sin nominación fiscal</div>
+                            </div>
+                          </div>
+                          {invoiceForm.customerId === 'CONSUMIDOR_FINAL' && (
+                            <span className="text-[10px] font-mono text-emerald-600 font-bold">Seleccionado</span>
+                          )}
+                        </div>
+
+                        {/* Lista de clientes filtrados por Nombre, Apellido o DNI/CUIT */}
+                        {filteredCustomerOptions.map((c) => {
+                          const isSelected = invoiceForm.customerId === c.id;
+                          return (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setInvoiceForm((prev) => ({ ...prev, customerId: c.id }));
+                                setCustomerComboboxQuery(`${c.firstName} ${c.lastName}`);
+                                setIsCustomerDropdownOpen(false);
+                              }}
+                              className={`p-2.5 hover:bg-zinc-50 cursor-pointer flex items-center justify-between transition-colors group ${
+                                isSelected ? 'bg-zinc-100/70' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-[10px] font-bold text-zinc-700">
+                                  {c.firstName[0]}
+                                  {c.lastName[0] || ''}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-bold text-zinc-950 group-hover:text-emerald-700 transition-colors">
+                                    {c.firstName} {c.lastName}
+                                  </div>
+                                  <div className="text-[10px] text-zinc-500 font-mono">
+                                    {c.docType}: <span className="font-semibold text-zinc-700">{c.doc || 'S/D'}</span>
+                                    {c.phone ? ` · 📞 ${c.phone}` : ''}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {isSelected ? (
+                                <span className="text-[10px] font-mono text-emerald-600 font-bold">Seleccionado</span>
+                              ) : (
+                                <span className="text-[10px] text-zinc-400 group-hover:text-zinc-800 font-medium">Elegir →</span>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Estado si no hay coincidencias */}
+                        {customerComboboxQuery.trim() && filteredCustomerOptions.length === 0 && (
+                          <div className="p-3 text-center text-zinc-500 text-xs">
+                            No se encontraron clientes con "{customerComboboxQuery}"
+                          </div>
+                        )}
+
+                        {/* Botón rápido para dar de alta nuevo cliente si no está */}
+                        <div
+                          onClick={() => {
+                            setNewCustomerForm((prev) => ({
+                              ...prev,
+                              firstName: customerComboboxQuery.trim(),
+                            }));
+                            setIsCustomerDropdownOpen(false);
+                            setShowAddCustomerModal(true);
+                          }}
+                          className="p-2.5 bg-emerald-50/70 hover:bg-emerald-100/70 cursor-pointer flex items-center justify-between transition-colors text-emerald-800"
+                        >
+                          <span className="text-xs font-heading font-bold flex items-center gap-1.5">
+                            <Plus className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>
+                              {customerComboboxQuery.trim()
+                                ? `Registrar "${customerComboboxQuery.trim()}" como Nuevo Cliente`
+                                : '+ Registrar Nuevo Cliente en el Directorio'}
+                            </span>
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Crear</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* 2. Factura Dividida: Tipo, Punto de Venta y Número (4 cols) */}
