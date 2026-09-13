@@ -418,8 +418,21 @@ export function PointOfSaleInterface() {
     const existingNums = invoices
       .filter((inv) => inv.invoiceType === type && inv.invoicePos === pos)
       .map((inv) => parseInt(inv.invoiceNum) || 0);
-    const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 4521;
-    return String(maxNum + 1).padStart(8, '0');
+    if (existingNums.length > 0) {
+      return String(Math.max(...existingNums) + 1).padStart(8, '0');
+    }
+    return pos === '0001' ? '00004522' : '00000001';
+  };
+
+  // Cambiar Punto de Venta (PV 1 o PV 2) con un clic y recalcular correlatividad
+  const handleSelectPos = (pos: string) => {
+    const nextNum = getNextInvoiceNumber(invoiceForm.invoiceType, pos);
+    setInvoiceForm((prev) => ({
+      ...prev,
+      invoicePos: pos,
+      invoiceNum: nextNum,
+      invoiceNumber: `${prev.invoiceType}-${pos}-${nextNum}`,
+    }));
   };
 
   // Abrir Modal de Nueva Factura
@@ -1477,11 +1490,29 @@ export function PointOfSaleInterface() {
                     )}
                   </div>
 
-                  {/* 2. Factura Dividida: Tipo, Punto de Venta y Número (4 cols) */}
+                  {/* 2. Factura Dividida: Tipo, Punto de Venta (Botones 1 y 2) y Número editable */}
                   <div className="lg:col-span-4">
-                    <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
-                      Comprobante: Tipo · Pto. Venta · Número *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
+                        Comprobante: Tipo · Pto. Venta · Número *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const suggested = getNextInvoiceNumber(invoiceForm.invoiceType, invoiceForm.invoicePos);
+                          setInvoiceForm((prev) => ({
+                            ...prev,
+                            invoiceNum: suggested,
+                            invoiceNumber: `${prev.invoiceType}-${prev.invoicePos}-${suggested}`,
+                          }));
+                        }}
+                        className="text-[10px] font-mono text-zinc-500 hover:text-zinc-900 transition-colors"
+                        title="Restaurar número correlativo sugerido automáticamente"
+                      >
+                        N° Sugerido
+                      </button>
+                    </div>
+
                     <div className="grid grid-cols-12 gap-1.5 items-center">
                       {/* Tipo */}
                       <div className="col-span-3">
@@ -1507,44 +1538,46 @@ export function PointOfSaleInterface() {
                         </select>
                       </div>
 
-                      {/* Punto de Venta (4 dígitos con auto-relleno de ceros) */}
-                      <div className="col-span-4 relative">
-                        <input
-                          type="text"
-                          maxLength={4}
-                          required
-                          placeholder="0001"
-                          value={invoiceForm.invoicePos}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9]/g, '');
-                            setInvoiceForm({
-                              ...invoiceForm,
-                              invoicePos: raw,
-                            });
-                          }}
-                          onBlur={() => {
-                            const raw = invoiceForm.invoicePos.replace(/[^0-9]/g, '');
-                            const padded = raw ? raw.padStart(4, '0') : '0001';
-                            const num = invoiceForm.invoiceNum ? invoiceForm.invoiceNum.padStart(8, '0') : '00000001';
-                            setInvoiceForm({
-                              ...invoiceForm,
-                              invoicePos: padded,
-                              invoiceNumber: `${invoiceForm.invoiceType}-${padded}-${num}`,
-                            });
-                          }}
-                          className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
-                          title="Punto de venta (4 dígitos, se completan ceros automáticamente)"
-                        />
+                      {/* Botones de Selección de Punto de Venta (PV 1 o PV 2) */}
+                      <div className="col-span-4">
+                        <div className="grid grid-cols-2 bg-zinc-100 p-0.5 rounded-xl border border-zinc-300 h-[34px] items-center">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectPos('0001')}
+                            className={`h-full rounded-lg text-xs font-mono font-black transition-all flex items-center justify-center ${
+                              invoiceForm.invoicePos === '0001'
+                                ? 'bg-zinc-950 text-white shadow-xs'
+                                : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200/50'
+                            }`}
+                            title="Punto de Venta 1 (0001 - Mostrador)"
+                          >
+                            PV 1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectPos('0002')}
+                            className={`h-full rounded-lg text-xs font-mono font-black transition-all flex items-center justify-center ${
+                              invoiceForm.invoicePos === '0002'
+                                ? 'bg-zinc-950 text-white shadow-xs'
+                                : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200/50'
+                            }`}
+                            title="Punto de Venta 2 (0002 - Web Services / Local)"
+                          >
+                            PV 2
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Número de Factura (8 dígitos con auto-relleno de ceros) */}
-                      <div className="col-span-5 relative">
+                      {/* Número de Factura: Auto-selección al hacer clic y botón ✕ para borrar directo */}
+                      <div className="col-span-5 relative flex items-center">
                         <input
                           type="text"
                           maxLength={8}
                           required
                           placeholder="00012345"
                           value={invoiceForm.invoiceNum}
+                          onFocus={(e) => e.target.select()}
+                          onClick={(e) => e.currentTarget.select()}
                           onChange={(e) => {
                             const raw = e.target.value.replace(/[^0-9]/g, '');
                             setInvoiceForm({
@@ -1554,17 +1587,33 @@ export function PointOfSaleInterface() {
                           }}
                           onBlur={() => {
                             const raw = invoiceForm.invoiceNum.replace(/[^0-9]/g, '');
-                            const padded = raw ? raw.padStart(8, '0') : '';
-                            const pos = invoiceForm.invoicePos ? invoiceForm.invoicePos.padStart(4, '0') : '0001';
+                            const pos = invoiceForm.invoicePos || '0001';
+                            const fallback = getNextInvoiceNumber(invoiceForm.invoiceType, pos);
+                            const padded = raw ? raw.padStart(8, '0') : fallback;
                             setInvoiceForm({
                               ...invoiceForm,
                               invoiceNum: padded,
-                              invoiceNumber: `${invoiceForm.invoiceType}-${pos}-${padded || '00000000'}`,
+                              invoiceNumber: `${invoiceForm.invoiceType}-${pos}-${padded}`,
                             });
                           }}
-                          className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
-                          title="Número de comprobante (hasta 8 dígitos, se completan ceros automáticamente)"
+                          className="w-full pl-2 pr-6 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                          title="Número de comprobante: hacé clic para reemplazarlo directamente o borralo con ✕"
                         />
+                        {invoiceForm.invoiceNum && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInvoiceForm({
+                                ...invoiceForm,
+                                invoiceNum: '',
+                              });
+                            }}
+                            className="absolute right-1.5 text-zinc-400 hover:text-zinc-700 p-0.5 rounded-full hover:bg-zinc-100 text-xs font-bold"
+                            title="Borrar para escribir un número nuevo"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
