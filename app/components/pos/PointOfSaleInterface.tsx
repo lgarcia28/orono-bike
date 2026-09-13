@@ -26,6 +26,7 @@ import {
   Percent,
   Eye,
   ShoppingBag,
+  Mail,
 } from 'lucide-react';
 
 export interface CustomerRecord {
@@ -353,6 +354,7 @@ export function PointOfSaleInterface() {
   const [showViewInvoiceModal, setShowViewInvoiceModal] = useState(false);
   const [selectedInvoiceToView, setSelectedInvoiceToView] = useState<SaleInvoiceRecord | null>(null);
   const [selectedCustomerPurchases, setSelectedCustomerPurchases] = useState<CustomerRecord | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // Formulario de Factura de Venta tipo Planilla (Spreadsheet)
   const [invoiceForm, setInvoiceForm] = useState<{
@@ -812,6 +814,60 @@ export function PointOfSaleInterface() {
     setShowViewInvoiceModal(true);
   };
 
+  // Enviar factura por correo electrónico al cliente vía Gmail SMTP
+  const handleSendInvoiceEmail = async (invoice: SaleInvoiceRecord) => {
+    let targetEmail = invoice.customerEmail?.trim();
+    if (!targetEmail || !targetEmail.includes('@')) {
+      const prompted = prompt(
+        `Ingresá el correo electrónico del cliente para enviar la factura ${invoice.invoiceNumber}:`,
+        ''
+      );
+      if (!prompted || !prompted.includes('@')) {
+        if (prompted !== null) {
+          alert('Debés ingresar un correo electrónico válido.');
+        }
+        return;
+      }
+      targetEmail = prompted.trim();
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const res = await fetch('/api/invoices/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: targetEmail,
+          customerName: invoice.customerName,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceType: invoice.invoiceType,
+          date: invoice.date,
+          totalAmount: invoice.totalAmount,
+          paymentMethod: invoice.paymentMethod,
+          items: invoice.items,
+          cae: invoice.cae,
+          caeVto: invoice.caeVto,
+          notes: invoice.notes,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.simulated) {
+          alert(`✉️ ${data.message}\n\nNota: Para el envío real a través de Gmail, configurá GMAIL_USER y GMAIL_APP_PASSWORD en .env.local.`);
+        } else {
+          alert(`✅ Factura enviada exitosamente a ${targetEmail}`);
+        }
+      } else {
+        alert(`❌ Error al enviar el correo: ${data.error || data.message || 'Error desconocido'}`);
+      }
+    } catch (err: any) {
+      alert(`❌ Error de conexión: ${err.message}`);
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   // Filtrado de Clientes en Directorio
   const filteredCustomers = useMemo(() => {
     if (!customerSearchQuery.trim()) return customers;
@@ -1174,18 +1230,29 @@ export function PointOfSaleInterface() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedInvoiceToView(inv);
-                          setShowViewInvoiceModal(true);
-                        }}
-                        className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-heading font-bold flex items-center gap-1.5 mx-auto transition-colors border border-zinc-200 shadow-2xs"
-                        title="Ver y descargar comprobante oficial"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-zinc-600" />
-                        <span>Descargar</span>
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedInvoiceToView(inv);
+                            setShowViewInvoiceModal(true);
+                          }}
+                          className="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-heading font-bold flex items-center gap-1 transition-colors border border-zinc-200 shadow-2xs"
+                          title="Ver y descargar comprobante oficial"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-zinc-600" />
+                          <span>Descargar</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSendInvoiceEmail(inv)}
+                          disabled={isSendingEmail}
+                          className="p-1.5 bg-zinc-100 hover:bg-emerald-50 text-zinc-600 hover:text-emerald-700 rounded-xl text-xs transition-colors border border-zinc-200 shadow-2xs disabled:opacity-50"
+                          title={`Enviar factura ${inv.invoiceNumber} por correo electrónico`}
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -2099,6 +2166,16 @@ export function PointOfSaleInterface() {
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isSendingEmail}
+                  onClick={() => handleSendInvoiceEmail(selectedInvoiceToView)}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-heading font-bold uppercase flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
+                  title="Enviar comprobante por correo electrónico al cliente"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>{isSendingEmail ? 'Enviando...' : 'Enviar por Email'}</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
