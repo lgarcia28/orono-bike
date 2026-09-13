@@ -368,15 +368,7 @@ export default function AdminDashboardPage() {
     date: new Date().toISOString().slice(0, 10),
     paymentMethod: 'Transferencia',
     notes: '',
-    items: [
-      {
-        id: 'row-1',
-        productId: 'prod-01',
-        variantId: 'var-01-m',
-        quantity: 1,
-        unitCost: 5800000,
-      },
-    ],
+    items: [],
   });
 
   const [receptionProductSearch, setReceptionProductSearch] = useState('');
@@ -779,8 +771,6 @@ export default function AdminDashboardPage() {
   // RECEPCIÓN DE MERCADERÍA & FACTURAS DE COMPRA (PLANILLA)
   // ========================================================
   const openNewReceptionModal = () => {
-    const firstProd = products[0];
-    const firstVar = firstProd?.variants[0];
     setReceptionProductSearch('');
     setReceptionForm({
       supplierId: suppliers[0]?.id || 'sup-01',
@@ -791,15 +781,7 @@ export default function AdminDashboardPage() {
       date: new Date().toISOString().slice(0, 10),
       paymentMethod: 'Transferencia',
       notes: '',
-      items: [
-        {
-          id: `row-${Date.now()}-1`,
-          productId: firstProd?.id || '',
-          variantId: firstVar?.id || '',
-          quantity: 1,
-          unitCost: firstVar?.cost || Math.round((firstVar?.price || 0) / 1.5),
-        },
-      ],
+      items: [],
     });
     setShowNewReceptionModal(true);
   };
@@ -833,30 +815,6 @@ export default function AdminDashboardPage() {
   const handleAddProductFromSearch = (product: ProductWithVariants, variant: ProductVariant) => {
     const cost = variant.cost || Math.round((variant.price || 0) / 1.5);
     setReceptionForm((prev) => {
-      // Si hay una única fila inicial por defecto sin editar, reemplazarla con el producto buscado
-      const firstRow = prev.items[0];
-      const isInitialDefaultRow =
-        prev.items.length === 1 &&
-        firstRow &&
-        firstRow.quantity === 1 &&
-        firstRow.productId === (products[0]?.id || '');
-
-      if (isInitialDefaultRow) {
-        return {
-          ...prev,
-          items: [
-            {
-              id: firstRow.id,
-              productId: product.id,
-              variantId: variant.id,
-              quantity: 1,
-              unitCost: cost,
-            },
-          ],
-        };
-      }
-
-      // Si ya hay artículos cargados, agregar como nueva fila a la planilla
       const newRow: ReceptionItemDraft = {
         id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         productId: product.id,
@@ -1103,10 +1061,6 @@ export default function AdminDashboardPage() {
   };
 
   const handleRemoveReceptionRow = (rowId: string) => {
-    if (receptionForm.items.length <= 1) {
-      alert('La planilla de la factura debe tener al menos un artículo.');
-      return;
-    }
     setReceptionForm((prev) => ({
       ...prev,
       items: prev.items.filter((it) => it.id !== rowId),
@@ -1174,17 +1128,10 @@ export default function AdminDashboardPage() {
       return updated;
     });
 
-    // Agregar o reemplazar en la planilla
+    // Agregar a la planilla
     setReceptionForm((prev) => {
-      const firstRow = prev.items[0];
-      const isInitialDefaultRow =
-        prev.items.length === 1 &&
-        firstRow &&
-        firstRow.quantity === 1 &&
-        firstRow.productId === (products[0]?.id || '');
-
       const newRow: ReceptionItemDraft = {
-        id: isInitialDefaultRow ? firstRow.id : `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         productId: newProd.id,
         variantId: varId,
         quantity: qty,
@@ -1193,7 +1140,7 @@ export default function AdminDashboardPage() {
 
       return {
         ...prev,
-        items: isInitialDefaultRow ? [newRow] : [...prev.items, newRow],
+        items: [...prev.items, newRow],
       };
     });
 
@@ -1215,7 +1162,7 @@ export default function AdminDashboardPage() {
   const handleSaveReception = (e: React.FormEvent) => {
     e.preventDefault();
     if (receptionForm.items.length === 0) {
-      alert('Debes ingresar al menos un artículo en la planilla.');
+      alert('⚠️ Para guardar la factura debes ingresar al menos un producto a la planilla.');
       return;
     }
 
@@ -1227,6 +1174,21 @@ export default function AdminDashboardPage() {
     const pos = (receptionForm.invoicePos || '1').padStart(4, '0');
     const num = (receptionForm.invoiceNum || '').padStart(8, '0');
     const computedInvoiceNumber = num ? `${type}-${pos}-${num}` : (receptionForm.invoiceNumber.trim() || `FC-INT-${Date.now().toString().slice(-6)}`);
+
+    // VALIDACIÓN ESTRICTA: No permitir duplicados del mismo número de factura para el mismo proveedor
+    const cleanCurrentNumber = computedInvoiceNumber.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const isDuplicate = receptions.some((r) => {
+      const sameSupplier = r.supplierId === supplier.id || r.supplierName.trim().toLowerCase() === supplier.name.trim().toLowerCase();
+      const existingCleanNumber = (r.invoiceNumber || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      return sameSupplier && existingCleanNumber === cleanCurrentNumber;
+    });
+
+    if (isDuplicate) {
+      alert(
+        `⛔ Error: Ya existe una factura registrada con el número "${computedInvoiceNumber}" para el proveedor "${supplier.name}".\n\nPor favor verifica el número o punto de venta para evitar duplicar stock y egresos.`
+      );
+      return;
+    }
 
     // Armar items recibidos con datos completos
     const parsedItems = receptionForm.items.map((row) => {
@@ -3046,7 +3008,24 @@ export default function AdminDashboardPage() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-200">
-                              {receptionForm.items.map((row, index) => {
+                              {receptionForm.items.length === 0 ? (
+                                <tr>
+                                  <td colSpan={8} className="py-12 px-4 text-center bg-white">
+                                    <div className="max-w-md mx-auto flex flex-col items-center justify-center text-zinc-400 gap-2">
+                                      <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 mb-1">
+                                        <Layers className="w-5 h-5" />
+                                      </div>
+                                      <p className="text-xs font-heading font-bold text-zinc-700 uppercase tracking-wide">
+                                        Planilla de factura vacía
+                                      </p>
+                                      <p className="text-[11px] text-zinc-500 leading-relaxed">
+                                        Buscá productos arriba por nombre o código, cargá un <strong className="text-emerald-700 font-bold">+ Nuevo Producto</strong>, o hacé clic en <strong className="text-zinc-800 font-bold">+ Agregar Artículo</strong> para empezar a cargar.
+                                      </p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : (
+                                receptionForm.items.map((row, index) => {
                                 const currentProduct = products.find((p) => p.id === row.productId) || products[0];
                                 const currentVariant =
                                   currentProduct?.variants.find((v) => v.id === row.variantId) || currentProduct?.variants[0];
@@ -3139,8 +3118,9 @@ export default function AdminDashboardPage() {
                                     </td>
                                   </tr>
                                 );
-                              })}
-                            </tbody>
+                              })
+                            )}
+                          </tbody>
                           </table>
                         </div>
 
