@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Header } from '@/app/components/layout/Header';
-import { CartDrawer, CartDrawerItem } from '@/app/components/layout/CartDrawer';
+import { CartDrawer } from '@/app/components/layout/CartDrawer';
+import { useCart } from '@/lib/context/CartContext';
 import { CatalogSection } from '@/app/components/catalog/CatalogSection';
 import { ALL_PRODUCTS_CATALOG } from '@/lib/data/bikes';
 import { ProductVariant } from '@/lib/supabase/types';
@@ -19,8 +21,16 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [cartItems, setCartItems] = useState<CartDrawerItem[]>([]);
+  const router = useRouter();
+  const {
+    items: cartItems,
+    itemCount,
+    isCartOpen,
+    setIsCartOpen,
+    openCart,
+    addToCart,
+    removeFromCart,
+  } = useCart();
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
 
   React.useEffect(() => {
@@ -32,28 +42,14 @@ export default function HomePage() {
   const handleAddToCart = (variant: ProductVariant, quantity: number) => {
     const parentProduct =
       ALL_PRODUCTS_CATALOG.find((p) => p.id === variant.product_id) || ALL_PRODUCTS_CATALOG[0];
-
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.variant.id === variant.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.variant.id === variant.id ? { ...item, quantity: item.quantity + quantity } : item
-        );
-      }
-      return [...prev, { variant: { ...variant, product: parentProduct }, quantity }];
-    });
-    setIsCartOpen(true);
-  };
-
-  const handleRemoveFromCart = (variantId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.variant.id !== variantId));
+    addToCart(variant, quantity, parentProduct);
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-zinc-900 font-sans">
       <Header
-        cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-        onOpenCart={() => setIsCartOpen(true)}
+        cartCount={itemCount}
+        onOpenCart={openCart}
       />
 
       {/* Hero Section con Video de Fondo (Solo visible en PC/Tablet, en Celular va directo al catálogo) */}
@@ -201,8 +197,11 @@ export default function HomePage() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         items={cartItems}
-        onRemoveItem={handleRemoveFromCart}
-        onCheckout={() => alert('Redirigiendo a Checkout seguro (Mercado Pago / Transferencia)...')}
+        onRemoveItem={removeFromCart}
+        onCheckout={() => {
+          setIsCartOpen(false);
+          router.push('/checkout');
+        }}
       />
     </div>
   );

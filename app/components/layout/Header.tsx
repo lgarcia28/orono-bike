@@ -16,14 +16,18 @@ import {
   Phone,
   LayoutDashboard,
 } from 'lucide-react';
+import { useCart } from '@/lib/context/CartContext';
 
 interface HeaderProps {
   cartCount?: number;
   onOpenCart?: () => void;
 }
 
-export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
+export function Header({ cartCount, onOpenCart }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const cart = useCart();
+  const effectiveCartCount = cartCount !== undefined ? cartCount : cart.itemCount;
+  const handleOpenCart = onOpenCart || cart.openCart;
 
   const handleNavigateSection = (sectionName: 'BICICLETAS' | 'COMPONENTES' | 'ACCESORIOS', anchorId: string) => {
     if (typeof window !== 'undefined') {
@@ -130,15 +134,15 @@ export function Header({ cartCount = 0, onOpenCart }: HeaderProps) {
         <div className="flex items-center gap-3">
           {/* Cart Trigger */}
           <button
-            onClick={onOpenCart}
+            onClick={handleOpenCart}
             aria-label="Abrir carrito"
             className="relative flex items-center gap-2 bg-zinc-950 hover:bg-zinc-800 text-white px-4 py-2.5 rounded-xl font-heading text-xs font-bold transition-all shadow-md active:scale-95"
           >
             <ShoppingCart className="w-4 h-4" />
             <span className="hidden sm:inline">Carrito</span>
-            {cartCount > 0 && (
+            {effectiveCartCount > 0 && (
               <span className="bg-white text-zinc-950 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center -mr-1">
-                {cartCount}
+                {effectiveCartCount}
               </span>
             )}
           </button>

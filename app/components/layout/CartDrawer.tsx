@@ -105,7 +105,7 @@ export function CartDrawer({ isOpen, onClose, items, onRemoveItem, onCheckout }:
                 onClick={onCheckout}
                 className="w-full bg-zinc-950 hover:bg-zinc-800 text-white font-semibold py-3.5 rounded-md text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all"
               >
-                Iniciar Checkout Seguro <ArrowRight className="w-4 h-4" />
+                Finalizar Compra <ArrowRight className="w-4 h-4" />
               </button>
 
               <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-zinc-500">

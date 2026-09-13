@@ -6,6 +6,7 @@ export interface FinancingRate {
 export interface PricingPolicySettings {
   defaultProfitMarginPercent: number; // 60% ganancia sobre costo
   cashDiscountLocalPercent: number;   // 20% descuento exclusivo en local físico
+  bankTransferDiscountPercent: number; // Descuento en transferencia web (configurable, default 0%)
   usdExchangeRate: number;            // Cotización dólar (ej. Banco Nación)
   autoUpdateDollarBNA: boolean;       // Actualizar automáticamente con Banco Nación
   dollarLastUpdated?: string;         // Timestamp de última sincronización
@@ -15,6 +16,7 @@ export interface PricingPolicySettings {
 export const DEFAULT_PRICING_POLICY: PricingPolicySettings = {
   defaultProfitMarginPercent: 60,
   cashDiscountLocalPercent: 20,
+  bankTransferDiscountPercent: 0,
   usdExchangeRate: 1535,
   autoUpdateDollarBNA: true,
   financingRates: [

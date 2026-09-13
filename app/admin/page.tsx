@@ -15,6 +15,7 @@ import {
   Receipt,
   Wrench,
   DollarSign,
+  Landmark,
   Plus,
   Search,
   SlidersHorizontal,
@@ -2363,7 +2364,7 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Bloques de Configuración */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
               {/* 1. Margen General de Ganancia */}
               <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col justify-between">
                 <div>
@@ -2379,12 +2380,14 @@ export default function AdminDashboardPage() {
                     <input
                       type="number"
                       value={pricingSettings.defaultProfitMarginPercent}
-                      onChange={(e) =>
-                        setPricingSettings({
+                      onChange={(e) => {
+                        const updated = {
                           ...pricingSettings,
                           defaultProfitMarginPercent: Number(e.target.value),
-                        })
-                      }
+                        };
+                        setPricingSettings(updated);
+                        PricingService.saveSettings(updated);
+                      }}
                       className="w-24 px-3 py-1.5 bg-zinc-50 border-2 border-emerald-400 rounded-xl text-2xl font-mono font-black text-zinc-950 focus:outline-none"
                     />
                     <span className="text-xl font-heading font-black text-emerald-700">% sobre Costo</span>
@@ -2428,23 +2431,66 @@ export default function AdminDashboardPage() {
                     <input
                       type="number"
                       value={pricingSettings.cashDiscountLocalPercent}
-                      onChange={(e) =>
-                        setPricingSettings({
+                      onChange={(e) => {
+                        const updated = {
                           ...pricingSettings,
                           cashDiscountLocalPercent: Number(e.target.value),
-                        })
-                      }
+                        };
+                        setPricingSettings(updated);
+                        PricingService.saveSettings(updated);
+                      }}
                       className="w-24 px-3 py-1.5 bg-zinc-50 border-2 border-amber-400 rounded-xl text-2xl font-mono font-black text-zinc-950 focus:outline-none"
                     />
                     <span className="text-xl font-heading font-black text-amber-700">% OFF en Local</span>
                   </div>
                   <p className="text-xs text-zinc-500 leading-relaxed">
-                    <strong>No se muestra en la web</strong> (en la tienda online solo figura Débito/Transferencia). Se aplica automáticamente al elegir Efectivo en el mostrador/POS.
+                    <strong>Exclusivo local físico</strong>. Se aplica automáticamente al cobrar en Efectivo en el mostrador/POS.
                   </p>
                 </div>
 
                 <div className="pt-5 mt-4 border-t border-zinc-100 text-[11px] text-zinc-500 font-mono">
                   Ejemplo: Venta de $160.000 en mostrador cobra <strong>${Math.round(160000 * (1 - pricingSettings.cashDiscountLocalPercent / 100)).toLocaleString('es-AR')}</strong> en efectivo.
+                </div>
+              </div>
+
+              {/* 3. Descuento Transferencia Bancaria (Web / Checkout) */}
+              <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-heading font-bold uppercase tracking-wider text-zinc-500">
+                      Descuento Transferencia (Web)
+                    </span>
+                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                      <Landmark className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={pricingSettings.bankTransferDiscountPercent ?? 0}
+                      onChange={(e) => {
+                        const updated = {
+                          ...pricingSettings,
+                          bankTransferDiscountPercent: Number(e.target.value),
+                        };
+                        setPricingSettings(updated);
+                        PricingService.saveSettings(updated);
+                      }}
+                      className="w-24 px-3 py-1.5 bg-zinc-50 border-2 border-indigo-400 rounded-xl text-2xl font-mono font-black text-zinc-950 focus:outline-none"
+                    />
+                    <span className="text-xl font-heading font-black text-indigo-700">% OFF en Web</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 leading-relaxed">
+                    Descuento automático en el <strong>Checkout online</strong> al pagar por transferencia. Si está en 0%, no se aplica ningún descuento.
+                  </p>
+                </div>
+
+                <div className="pt-5 mt-4 border-t border-zinc-100 text-[11px] text-zinc-500 font-mono">
+                  {(pricingSettings.bankTransferDiscountPercent || 0) > 0
+                    ? `Activo: aplica ${pricingSettings.bankTransferDiscountPercent}% OFF en transferencias web.`
+                    : 'Sin descuento activo en transferencias online (0% OFF).'}
                 </div>
               </div>
 

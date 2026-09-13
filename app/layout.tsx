@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Montserrat, Inter } from 'next/font/google';
 import './globals.css';
 import { FloatingActions } from '@/app/components/ui/FloatingActions';
+import { CartProvider } from '@/lib/context/CartContext';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -31,8 +32,10 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${montserrat.variable} ${inter.variable} scroll-smooth`}>
       <body className="min-h-screen flex flex-col font-sans bg-white text-zinc-900 antialiased selection:bg-zinc-950 selection:text-white">
-        {children}
-        <FloatingActions />
+        <CartProvider>
+          {children}
+          <FloatingActions />
+        </CartProvider>
       </body>
     </html>
   );
