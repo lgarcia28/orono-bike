@@ -277,6 +277,7 @@ export default function AdminDashboardPage() {
   });
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [selectedCustomerForPurchases, setSelectedCustomerForPurchases] = useState<CustomerRecord | null>(null);
   const [newCustomerForm, setNewCustomerForm] = useState({
     fullName: '',
     phone: '',
@@ -643,6 +644,23 @@ export default function AdminDashboardPage() {
       currency: 'ARS',
       maximumFractionDigits: 0,
     }).format(val);
+  };
+
+  const getInvoiceTypeBadge = (type?: string) => {
+    const t = (type || '').toUpperCase();
+    if (t.includes('FACTURA_A') || t === 'A' || t.includes('FC A')) {
+      return { label: 'Factura A', bg: 'bg-blue-50 text-blue-700 border-blue-200' };
+    }
+    if (t.includes('FACTURA_B') || t === 'B' || t.includes('FC B')) {
+      return { label: 'Factura B', bg: 'bg-purple-50 text-purple-700 border-purple-200' };
+    }
+    if (t.includes('FACTURA_C') || t === 'C' || t.includes('FC C')) {
+      return { label: 'Factura C', bg: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+    }
+    if (t.includes('REMITO') || t.includes('REM')) {
+      return { label: 'Remito Oficial', bg: 'bg-amber-50 text-amber-800 border-amber-200' };
+    }
+    return { label: 'Remito / Ticket Local', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
   };
 
   // Preset de fechas
@@ -1397,6 +1415,16 @@ export default function AdminDashboardPage() {
       docType: 'DNI',
       purchasedBike: '',
     });
+  };
+
+  const handleDeleteCustomer = (id: string, name: string) => {
+    if (confirm(`¿Estás seguro de que deseas eliminar al cliente "${name}"?`)) {
+      const updated = customers.filter((c) => c.id !== id);
+      setCustomers(updated);
+      try {
+        localStorage.setItem('orono_customers', JSON.stringify(updated));
+      } catch (err) {}
+    }
   };
 
   // ========================================================
@@ -3729,95 +3757,312 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Buscador de Clientes */}
-            <div className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-xs flex items-center gap-3">
-              <Search className="w-4 h-4 text-zinc-400" />
-              <input
-                type="text"
-                placeholder="Buscar cliente por apellido, nombre, teléfono, DNI o modelo de bicicleta..."
-                value={customerSearchQuery}
-                onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                className="w-full bg-transparent text-xs font-medium focus:outline-none"
-              />
+            {/* Listado Oficial de Clientes & Compras */}
+            <div className="bg-white rounded-3xl border border-zinc-200 shadow-xs overflow-hidden">
+              <div className="p-6 border-b border-zinc-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-50/50">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-zinc-950" />
+                    <h3 className="text-base font-heading font-black text-zinc-950">
+                      Listado de Clientes Registrados
+                    </h3>
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    Directorio de clientes con historial de compras, facturas y remitos asociados.
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-72">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre, DNI, teléfono o bici..."
+                      value={customerSearchQuery}
+                      onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                    />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-zinc-700 bg-white border border-zinc-200 px-3 py-2 rounded-xl whitespace-nowrap shrink-0">
+                    {customers.length} {customers.length === 1 ? 'Cliente' : 'Clientes'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-100/80 border-b border-zinc-200 text-zinc-600 font-heading font-bold uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4 min-w-[220px]">Cliente / Nombre y Apellido</th>
+                      <th className="py-3 px-4 min-w-[130px]">Documento</th>
+                      <th className="py-3 px-4 min-w-[160px]">Contacto (Tel / Email)</th>
+                      <th className="py-3 px-4 min-w-[180px]">Compras Realizadas</th>
+                      <th className="py-3 px-4 text-right min-w-[150px]">Total Invertido ($ ARS)</th>
+                      <th className="py-3 px-4 text-center w-36">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200 font-medium">
+                    {filteredCustomers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-zinc-400">
+                          <Users className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                          <p className="text-xs font-bold text-zinc-600">No se encontraron clientes</p>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            {customerSearchQuery
+                              ? 'Probá ajustando el término de búsqueda'
+                              : 'Presioná "+ Cargar Cliente Manual" para registrar uno.'}
+                          </p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCustomers.map((cust) => {
+                        const purchasesCount = cust.purchases?.length || 0;
+                        const initials = `${cust.firstName?.[0] || ''}${cust.lastName?.[0] || ''}`.toUpperCase() || 'CL';
+
+                        return (
+                          <tr key={cust.id} className="hover:bg-zinc-50/80 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-700 shrink-0 font-heading font-black text-xs">
+                                  {initials}
+                                </div>
+                                <div>
+                                  <strong className="font-heading font-bold text-zinc-950 block text-xs">
+                                    {cust.lastName}, {cust.firstName}
+                                  </strong>
+                                  <span className="text-[10px] text-zinc-400 block font-sans">
+                                    Registrado: {cust.createdAt || 'Reciente'}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-mono text-zinc-700 bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded text-[11px] font-semibold">
+                                {cust.docType}: {cust.doc}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="text-zinc-800 font-mono text-[11px] flex items-center gap-1">
+                                <span>📞</span>
+                                <span>{cust.phone}</span>
+                              </div>
+                              {cust.email && (
+                                <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[180px]" title={cust.email}>
+                                  {cust.email}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCustomerForPurchases(cust)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all shadow-2xs group cursor-pointer"
+                                title="Ver listado de compras con facturas y remitos"
+                              >
+                                <Receipt className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
+                                <span>{purchasesCount} {purchasesCount === 1 ? 'compra' : 'compras'}</span>
+                                <span className="text-[10px] uppercase font-mono font-black text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded">
+                                  Ver Compras
+                                </span>
+                              </button>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <span className="font-mono font-bold text-xs text-zinc-950 block">
+                                {formatCurrency(cust.totalSpent)}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <a
+                                  href={`https://wa.me/${cust.phone.replace(/[^0-9]/g, '')}?text=Hola%20${encodeURIComponent(
+                                    cust.firstName
+                                  )}!%20Te%20contactamos%20de%20Oroño%20Bike.`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`Enviar WhatsApp a ${cust.firstName}`}
+                                  className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors inline-flex items-center justify-center"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedCustomerForPurchases(cust)}
+                                  title="Ver compras y facturas"
+                                  className="px-2 py-1 bg-zinc-950 hover:bg-zinc-800 text-white rounded-lg text-[10px] font-heading font-bold uppercase transition-colors"
+                                >
+                                  Compras
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCustomer(cust.id, `${cust.firstName} ${cust.lastName}`)}
+                                  title="Eliminar cliente"
+                                  className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Listado de Clientes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredCustomers.map((cust) => (
-                <div
-                  key={cust.id}
-                  className="bg-white p-6 rounded-3xl border border-zinc-200 hover:border-zinc-400 shadow-xs flex flex-col justify-between transition-all"
-                >
-                  <div>
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-heading font-black text-base text-zinc-950 leading-tight">
-                          {cust.lastName}, {cust.firstName}
-                        </h3>
-                        <span className="text-[11px] text-zinc-400 font-mono">
-                          {cust.docType}: {cust.doc}
-                        </span>
-                      </div>
-                      <span className="text-xs font-mono font-bold text-zinc-950 bg-zinc-100 px-2.5 py-1 rounded-lg">
-                        {formatCurrency(cust.totalSpent)}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5 text-xs text-zinc-600 mb-4 bg-zinc-50 p-3 rounded-2xl border border-zinc-100">
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-zinc-400" />
-                        <span className="font-mono">{cust.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-3.5 h-3.5 text-zinc-400" />
-                        <span className="truncate">{cust.email}</span>
-                      </div>
-                    </div>
-
-                    {/* Bicicletas / Artículos Comprados */}
+            {/* Modal de Compras, Facturas y Remitos del Cliente */}
+            {selectedCustomerForPurchases && (
+              <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                <div className="bg-white rounded-3xl p-5 sm:p-8 max-w-3xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto max-h-[92vh] flex flex-col">
+                  {/* Modal Header */}
+                  <div className="flex items-start justify-between pb-4 border-b border-zinc-200">
                     <div>
-                      <span className="text-[10px] font-heading font-black uppercase tracking-wider text-zinc-400 block mb-1.5">
-                        Bicicletas / Compras Realizadas:
-                      </span>
-                      {cust.purchases && cust.purchases.length > 0 ? (
-                        <div className="space-y-1.5">
-                          {cust.purchases.map((p, idx) => (
-                            <div
-                              key={idx}
-                              className="p-2 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-0.5"
-                            >
-                              <div className="flex items-center gap-1 text-emerald-950 font-heading font-bold">
-                                <Bike className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span className="line-clamp-1">{p.itemsSummary}</span>
-                              </div>
-                              <div className="flex justify-between text-[10px] text-emerald-800 font-mono">
-                                <span>{p.date.slice(0, 10)}</span>
-                                <strong>{formatCurrency(p.total)}</strong>
-                              </div>
-                            </div>
-                          ))}
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-2xl bg-zinc-950 text-white flex items-center justify-center shadow-sm">
+                          <Receipt className="w-5 h-5 text-emerald-400" />
                         </div>
-                      ) : (
-                        <span className="text-xs text-zinc-400 italic">Sin compras registradas aún.</span>
-                      )}
+                        <div>
+                          <h3 className="text-lg font-heading font-black text-zinc-950 leading-tight">
+                            Historial de Compras & Comprobantes
+                          </h3>
+                          <p className="text-xs text-zinc-600 font-medium mt-0.5">
+                            Cliente: <strong className="text-zinc-950 font-bold">{selectedCustomerForPurchases.lastName}, {selectedCustomerForPurchases.firstName}</strong> ({selectedCustomerForPurchases.docType}: {selectedCustomerForPurchases.doc})
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCustomerForPurchases(null)}
+                      className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-xl hover:bg-zinc-100 transition-colors text-base font-bold"
+                      title="Cerrar ventana"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Resumen KPI del Cliente */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">
+                    <div className="bg-zinc-50 border border-zinc-200 p-3 rounded-2xl">
+                      <span className="text-[10px] font-heading font-bold uppercase text-zinc-400 block">Total Compras</span>
+                      <strong className="text-base font-mono font-bold text-zinc-950">
+                        {selectedCustomerForPurchases.purchases?.length || 0} {selectedCustomerForPurchases.purchases?.length === 1 ? 'operación' : 'operaciones'}
+                      </strong>
+                    </div>
+                    <div className="bg-zinc-50 border border-zinc-200 p-3 rounded-2xl">
+                      <span className="text-[10px] font-heading font-bold uppercase text-zinc-400 block">Total Invertido</span>
+                      <strong className="text-base font-mono font-bold text-emerald-700">
+                        {formatCurrency(selectedCustomerForPurchases.totalSpent)}
+                      </strong>
+                    </div>
+                    <div className="bg-zinc-50 border border-zinc-200 p-3 rounded-2xl">
+                      <span className="text-[10px] font-heading font-bold uppercase text-zinc-400 block">Teléfono de Contacto</span>
+                      <strong className="text-xs font-mono font-bold text-zinc-800 block truncate">
+                        {selectedCustomerForPurchases.phone}
+                      </strong>
                     </div>
                   </div>
 
-                  <div className="pt-4 mt-4 border-t border-zinc-100">
+                  {/* Listado de Compras con Factura / Remito */}
+                  <div className="flex-1 overflow-y-auto min-h-[220px] max-h-[50vh] border border-zinc-200 rounded-2xl bg-white">
+                    {(!selectedCustomerForPurchases.purchases || selectedCustomerForPurchases.purchases.length === 0) ? (
+                      <div className="p-10 text-center text-zinc-400">
+                        <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-zinc-300" />
+                        <p className="text-xs font-bold text-zinc-600">Este cliente no tiene compras registradas</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          Las ventas realizadas en mostrador (POS) o web se asociarán automáticamente aquí.
+                        </p>
+                      </div>
+                    ) : (
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-zinc-100/90 border-b border-zinc-200 text-zinc-600 font-heading font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
+                          <tr>
+                            <th className="py-2.5 px-3.5">Fecha</th>
+                            <th className="py-2.5 px-3.5">Comprobante (Factura / Remito)</th>
+                            <th className="py-2.5 px-3.5 min-w-[220px]">Artículos / Bicicletas</th>
+                            <th className="py-2.5 px-3.5 text-right">Monto Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-200 font-medium">
+                          {selectedCustomerForPurchases.purchases.map((pur, idx) => {
+                            const badge = getInvoiceTypeBadge(pur.invoiceType);
+                            const invoiceNum = pur.invoiceId || pur.orderId || `COMP-${idx + 1}`;
+
+                            return (
+                              <tr key={idx} className="hover:bg-zinc-50/80 transition-colors">
+                                <td className="py-3 px-3.5 font-mono text-[11px] text-zinc-500 whitespace-nowrap align-top">
+                                  {pur.date}
+                                </td>
+                                <td className="py-3 px-3.5 align-top">
+                                  <div className="space-y-1">
+                                    <span className={`inline-block px-2 py-0.5 text-[10px] font-heading font-bold uppercase rounded border ${badge.bg}`}>
+                                      {badge.label}
+                                    </span>
+                                    <div className="font-mono font-bold text-xs text-zinc-950 flex items-center gap-1">
+                                      <FileText className="w-3 h-3 text-zinc-400 shrink-0" />
+                                      <span>{invoiceNum}</span>
+                                    </div>
+                                    {pur.orderId && pur.orderId !== pur.invoiceId && (
+                                      <span className="text-[10px] text-zinc-400 font-mono block">
+                                        Ref: {pur.orderId}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3.5 align-top">
+                                  <div className="text-zinc-900 font-semibold text-xs flex items-start gap-1.5">
+                                    <Bike className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                    <span>{pur.itemsSummary || 'Artículos varios'}</span>
+                                  </div>
+                                  {pur.bicyclesBought && pur.bicyclesBought.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {pur.bicyclesBought.map((b, bIdx) => (
+                                        <span
+                                          key={bIdx}
+                                          className="text-[10px] bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md border border-zinc-200 font-mono"
+                                        >
+                                          🚲 {b}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3.5 text-right font-mono font-bold text-xs text-emerald-700 align-top whitespace-nowrap">
+                                  {formatCurrency(pur.total)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="pt-4 mt-4 border-t border-zinc-200 flex flex-col sm:flex-row justify-between items-center gap-3">
                     <a
-                      href={`https://wa.me/${cust.phone}?text=Hola%20${encodeURIComponent(
-                        cust.firstName
-                      )}!%20Te%20contactamos%20de%20Oroño%20Bike.`}
+                      href={`https://wa.me/${selectedCustomerForPurchases.phone.replace(/[^0-9]/g, '')}?text=Hola%20${encodeURIComponent(
+                        selectedCustomerForPurchases.firstName
+                      )}!%20Te%20contactamos%20de%20Oroño%20Bike%20por%20tu%20compra.`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-heading text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors shadow-xs"
+                      className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-heading font-bold uppercase flex items-center justify-center gap-2 transition-colors shadow-xs"
                     >
-                      <Send className="w-3.5 h-3.5" /> Enviar WhatsApp
+                      <Send className="w-3.5 h-3.5" /> Contactar por WhatsApp
                     </a>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCustomerForPurchases(null)}
+                      className="w-full sm:w-auto px-5 py-2 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-xs font-heading font-bold uppercase transition-colors"
+                    >
+                      Cerrar
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
             {/* Modal para Agregar Cliente Manual */}
             {showAddCustomerModal && (
