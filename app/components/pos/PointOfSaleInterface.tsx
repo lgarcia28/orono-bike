@@ -1554,10 +1554,10 @@ export function PointOfSaleInterface() {
                         </select>
                       </div>
 
-                      {/* Número de Factura con prefijo 'N' a la izquierda y color gris claro si es el sugerido/ejemplo */}
+                      {/* Número de Factura con prefijo 'Nº' a la izquierda y color gris claro si es el sugerido/ejemplo */}
                       <div className="col-span-5 relative flex items-center h-10">
                         <span className="absolute left-2.5 text-xs font-mono font-black text-zinc-400 select-none pointer-events-none">
-                          N
+                          Nº
                         </span>
                         <input
                           type="text"
@@ -1589,28 +1589,13 @@ export function PointOfSaleInterface() {
                               invoiceNumber: `${invoiceForm.invoiceType}-${pos}-${padded}`,
                             });
                           }}
-                          className={`w-full h-10 pl-6 pr-7 bg-white border border-zinc-300 rounded-xl text-xs font-mono text-center focus:outline-none focus:ring-1 focus:ring-zinc-950 placeholder:text-zinc-400 ${
+                          className={`w-full h-10 pl-8 pr-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono text-center focus:outline-none focus:ring-1 focus:ring-zinc-950 placeholder:text-zinc-400 ${
                             isInvoiceNumFocused || (invoiceForm.invoiceNum && invoiceForm.invoiceNum !== getNextInvoiceNumber(invoiceForm.invoiceType, invoiceForm.invoicePos || '0001'))
                               ? 'text-zinc-900 font-black'
                               : 'text-zinc-400 font-bold'
                           }`}
-                          title="Número de comprobante: hacé clic para reemplazarlo directamente o borralo con ✕"
+                          title="Número de comprobante: hacé clic para reemplazarlo directamente"
                         />
-                        {invoiceForm.invoiceNum && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setInvoiceForm({
-                                ...invoiceForm,
-                                invoiceNum: '',
-                              });
-                            }}
-                            className="absolute right-2 text-zinc-400 hover:text-zinc-700 p-0.5 rounded-full hover:bg-zinc-100 text-xs font-bold"
-                            title="Borrar para escribir un número nuevo"
-                          >
-                            ✕
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
