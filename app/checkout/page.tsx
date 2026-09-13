@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/context/CartContext';
 import { PricingService, PricingPolicySettings, DEFAULT_PRICING_POLICY } from '@/lib/services/pricing.service';
+import { PromoService, PromoPopupSettings, DEFAULT_PROMO_SETTINGS } from '@/lib/services/promo.service';
 import { OrdersService } from '@/lib/services/orders.service';
 import {
   ShieldCheck,
@@ -22,6 +23,9 @@ import {
   MessageCircle,
   Copy,
   Lock,
+  Tag,
+  Gift,
+  X,
 } from 'lucide-react';
 
 const formatCurrency = (val: number) => {
@@ -38,12 +42,30 @@ export default function CheckoutPage() {
 
   // Pricing policy (descuento en transferencia y dólar)
   const [pricingSettings, setPricingSettings] = useState<PricingPolicySettings>(DEFAULT_PRICING_POLICY);
+  // Marketing Promo Settings (cupones de descuento o regalo físico)
+  const [promoSettings, setPromoSettings] = useState<PromoPopupSettings>(DEFAULT_PROMO_SETTINGS);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    type: 'discount' | 'gift';
+    discountPercent?: number;
+    giftItemName?: string;
+  } | null>(null);
 
   useEffect(() => {
     setPricingSettings(PricingService.getSettings());
     const handleUpdate = () => setPricingSettings(PricingService.getSettings());
     window.addEventListener('pricingPolicyUpdated', handleUpdate);
-    return () => window.removeEventListener('pricingPolicyUpdated', handleUpdate);
+
+    setPromoSettings(PromoService.getSettings());
+    const handlePromoUpdate = () => setPromoSettings(PromoService.getSettings());
+    window.addEventListener('promoSettingsUpdated', handlePromoUpdate);
+
+    return () => {
+      window.removeEventListener('pricingPolicyUpdated', handleUpdate);
+      window.removeEventListener('promoSettingsUpdated', handlePromoUpdate);
+    };
   }, []);
 
   // Formulario de Datos y Envío
@@ -78,9 +100,16 @@ export default function CheckoutPage() {
   // Descuento por transferencia si está configurado en admin (> 0%)
   const transferDiscountPercent = pricingSettings.bankTransferDiscountPercent || 0;
   const isTransfer = paymentMethod === 'transfer_ars';
-  const discountAmount = isTransfer && transferDiscountPercent > 0
+  const transferDiscountAmount = isTransfer && transferDiscountPercent > 0
     ? Math.round(totalAmount * (transferDiscountPercent / 100))
     : 0;
+
+  // Cupón de descuento aplicado
+  const couponDiscountAmount = appliedCoupon?.type === 'discount' && appliedCoupon.discountPercent
+    ? Math.round(totalAmount * (appliedCoupon.discountPercent / 100))
+    : 0;
+
+  const totalDiscountAmount = transferDiscountAmount + couponDiscountAmount;
 
   // Financiación Mercado Pago
   const financingRateObj = pricingSettings.financingRates?.find(
@@ -88,14 +117,49 @@ export default function CheckoutPage() {
   );
   const surchargePercent = paymentMethod === 'mercadopago' ? (financingRateObj?.surchargePercent || 0) : 0;
   const mpSurchargeAmount = paymentMethod === 'mercadopago'
-    ? Math.round(totalAmount * (surchargePercent / 100))
+    ? Math.round((totalAmount - couponDiscountAmount) * (surchargePercent / 100))
     : 0;
 
-  const finalTotalARS = totalAmount - discountAmount + shippingCost + mpSurchargeAmount;
+  const finalTotalARS = Math.max(0, totalAmount - totalDiscountAmount + shippingCost + mpSurchargeAmount);
 
   // Dólar billete
   const usdRate = pricingSettings.usdExchangeRate || 1535;
   const totalUSD = Math.round(finalTotalARS / usdRate);
+
+  const handleApplyCoupon = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCouponError(null);
+
+    const cleanInput = couponInput.trim().toUpperCase();
+    if (!cleanInput) return;
+
+    // Verificar contra la configuración activa del admin
+    const activeCode = (promoSettings.couponCode || 'BIENVENIDO10').trim().toUpperCase();
+
+    if (cleanInput === activeCode) {
+      if (promoSettings.benefitType === 'discount') {
+        setAppliedCoupon({
+          code: activeCode,
+          type: 'discount',
+          discountPercent: promoSettings.discountPercent || 10,
+        });
+      } else {
+        setAppliedCoupon({
+          code: activeCode,
+          type: 'gift',
+          giftItemName: promoSettings.giftItemName || 'Luz LED Trasera Recargable USB',
+        });
+      }
+      setCouponInput('');
+    } else {
+      setCouponError(`El cupón "${cleanInput}" no es válido o ha expirado.`);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError(null);
+  };
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -139,6 +203,30 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     try {
+      // Si hay un cupón de regalo físico, lo añadimos como ítem a $0 para que figure en la orden y depósito
+      const orderItems = items.map((it) => ({
+        productVariantId: it.variant.id,
+        title: it.variant.product.title,
+        variantDetails: `Talle ${it.variant.size} | Rodado ${it.variant.wheel_size || '-'} | ${it.variant.color}`,
+        quantity: it.quantity,
+        unitPrice: it.variant.price,
+      }));
+
+      if (appliedCoupon?.type === 'gift' && appliedCoupon.giftItemName) {
+        orderItems.push({
+          productVariantId: 'PROMO-GIFT',
+          title: `🎁 Obsequio Promocional: ${appliedCoupon.giftItemName}`,
+          variantDetails: `Promoción Cupón ${appliedCoupon.code} (Sin Cargo)`,
+          quantity: 1,
+          unitPrice: 0,
+        });
+      }
+
+      const notesContent = [
+        formData.notes.trim() || '',
+        appliedCoupon ? `[Cupón aplicado: ${appliedCoupon.code} - ${appliedCoupon.type === 'discount' ? `${appliedCoupon.discountPercent}% OFF` : `Regalo: ${appliedCoupon.giftItemName}`}]` : '',
+      ].filter(Boolean).join(' | ');
+
       const orderPayload = {
         channel: 'web' as const,
         customerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
@@ -165,16 +253,10 @@ export default function CheckoutPage() {
             : `Mercado Pago (${selectedInstallments} cuotas)`,
         paymentStatus: 'pending_payment' as const,
         subtotal: totalAmount,
-        discount: discountAmount,
+        discount: totalDiscountAmount,
         total: finalTotalARS,
-        notes: formData.notes.trim() || undefined,
-        items: items.map((it) => ({
-          productVariantId: it.variant.id,
-          title: it.variant.product.title,
-          variantDetails: `Talle ${it.variant.size} | Rodado ${it.variant.wheel_size || '-'} | ${it.variant.color}`,
-          quantity: it.quantity,
-          unitPrice: it.variant.price,
-        })),
+        notes: notesContent || undefined,
+        items: orderItems,
       };
 
       const result = await OrdersService.createOrder(orderPayload);
@@ -185,7 +267,7 @@ export default function CheckoutPage() {
           calculatedUSD: totalUSD,
           chosenPayment: paymentMethod,
           itemsSummary: items,
-          discountAmount,
+          discountAmount: totalDiscountAmount,
         });
         clearCart();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -740,6 +822,88 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 ))}
+
+                {/* Ítem de Regalo Promocional Aplicado */}
+                {appliedCoupon?.type === 'gift' && appliedCoupon.giftItemName && (
+                  <div className="pt-3 flex gap-3 items-center bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
+                    <div className="w-10 h-10 bg-emerald-500 text-white rounded-lg flex items-center justify-center shrink-0 shadow-xs">
+                      <Gift className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-mono font-black uppercase px-1.5 py-0.5 bg-emerald-600 text-white rounded">
+                          REGALO
+                        </span>
+                        <h4 className="text-xs font-heading font-bold text-emerald-950 truncate">
+                          {appliedCoupon.giftItemName}
+                        </h4>
+                      </div>
+                      <p className="text-[10px] text-emerald-700 mt-0.5 font-medium">
+                        Cupón {appliedCoupon.code} aplicado con éxito
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono font-black text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                      GRATIS
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Input de Cupón de Descuento / Regalo */}
+              <div className="pt-3 border-t border-zinc-200">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between p-2.5 bg-zinc-900 text-white rounded-xl text-xs">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <div>
+                        <span className="font-mono font-black text-amber-300">{appliedCoupon.code}</span>
+                        <span className="text-[11px] text-zinc-300 ml-1.5">
+                          {appliedCoupon.type === 'discount'
+                            ? `(${appliedCoupon.discountPercent}% OFF aplicado)`
+                            : `(Regalo: ${appliedCoupon.giftItemName})`}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-zinc-400 hover:text-white p-1 transition-colors"
+                      title="Quitar cupón"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleApplyCoupon} className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Tag className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="¿Tenés cupón? (ej. BIENVENIDO10)"
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value.toUpperCase());
+                            if (couponError) setCouponError(null);
+                          }}
+                          className="w-full h-8 pl-8 pr-2.5 bg-zinc-50 border border-zinc-300 rounded-lg text-xs font-mono uppercase font-bold text-zinc-900 placeholder:normal-case placeholder:font-normal placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:bg-white"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={!couponInput.trim()}
+                        className="h-8 px-3 bg-zinc-900 text-white rounded-lg text-xs font-heading font-bold uppercase hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      >
+                        Aplicar
+                      </button>
+                    </div>
+                    {couponError && (
+                      <p className="text-[11px] text-red-600 font-medium pl-1">
+                        {couponError}
+                      </p>
+                    )}
+                  </form>
+                )}
               </div>
 
               {/* Resumen de Costos */}
@@ -749,10 +913,20 @@ export default function CheckoutPage() {
                   <span className="font-mono">{formatCurrency(totalAmount)}</span>
                 </div>
 
-                {discountAmount > 0 && (
+                {couponDiscountAmount > 0 && appliedCoupon && (
+                  <div className="flex justify-between text-amber-800 font-bold bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+                    <span className="flex items-center gap-1.5">
+                      <Tag className="w-3 h-3 text-amber-600" />
+                      Cupón {appliedCoupon.code} ({appliedCoupon.discountPercent}% OFF)
+                    </span>
+                    <span className="font-mono">-{formatCurrency(couponDiscountAmount)}</span>
+                  </div>
+                )}
+
+                {transferDiscountAmount > 0 && (
                   <div className="flex justify-between text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg">
                     <span>Descuento Transferencia ({transferDiscountPercent}% OFF)</span>
-                    <span className="font-mono">-{formatCurrency(discountAmount)}</span>
+                    <span className="font-mono">-{formatCurrency(transferDiscountAmount)}</span>
                   </div>
                 )}
 

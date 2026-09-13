@@ -8,6 +8,7 @@ import { ProductWithVariants, ProductVariant } from '@/lib/supabase/types';
 import { WorkshopService, WorkshopServiceItem } from '@/lib/services/workshop.service';
 import { PointOfSaleInterface } from '@/app/components/pos/PointOfSaleInterface';
 import { PricingService, PricingPolicySettings, DEFAULT_PRICING_POLICY } from '@/lib/services/pricing.service';
+import { PromoService, PromoPopupSettings, PromoSubscriber, DEFAULT_PROMO_SETTINGS } from '@/lib/services/promo.service';
 import {
   LayoutDashboard,
   Package,
@@ -62,9 +63,12 @@ import {
   Key,
   Loader2,
   Upload,
+  Gift,
+  Copy,
+  Check,
 } from 'lucide-react';
 
-type AdminTab = 'ventas' | 'pos_facturacion' | 'inventario' | 'politicas' | 'recepcion' | 'clientes' | 'caja' | 'taller';
+type AdminTab = 'ventas' | 'pos_facturacion' | 'inventario' | 'politicas' | 'recepcion' | 'clientes' | 'caja' | 'taller' | 'marketing';
 type DatePreset = 'hoy' | 'ayer' | 'semana' | 'mes' | 'custom';
 
 interface CashMovement {
@@ -608,6 +612,40 @@ export default function AdminDashboardPage() {
     setPricingSettings(newSettings);
     setPricingSavedToast(true);
     setTimeout(() => setPricingSavedToast(false), 2500);
+  };
+
+  // Configuración de Marketing & Pop-up Promocional (Lead Magnet)
+  const [promoSettings, setPromoSettings] = useState<PromoPopupSettings>(() => PromoService.getSettings());
+  const [promoSubscribers, setPromoSubscribers] = useState<PromoSubscriber[]>(() => PromoService.getSubscribers());
+  const [promoSavedToast, setPromoSavedToast] = useState(false);
+  const [copiedEmailsToast, setCopiedEmailsToast] = useState(false);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setPromoSettings(PromoService.getSettings());
+      setPromoSubscribers(PromoService.getSubscribers());
+    };
+    window.addEventListener('promoSettingsUpdated', handleUpdate);
+    window.addEventListener('promoSubscribersUpdated', handleUpdate);
+    return () => {
+      window.removeEventListener('promoSettingsUpdated', handleUpdate);
+      window.removeEventListener('promoSubscribersUpdated', handleUpdate);
+    };
+  }, []);
+
+  const handleSavePromoSettings = (newSettings: PromoPopupSettings) => {
+    PromoService.saveSettings(newSettings);
+    setPromoSettings(newSettings);
+    setPromoSavedToast(true);
+    setTimeout(() => setPromoSavedToast(false), 2500);
+  };
+
+  const handleCopyAllEmails = () => {
+    if (promoSubscribers.length === 0) return;
+    const allEmails = promoSubscribers.map((s) => s.email).join(', ');
+    navigator.clipboard.writeText(allEmails);
+    setCopiedEmailsToast(true);
+    setTimeout(() => setCopiedEmailsToast(false), 2500);
   };
 
   // Recalcular masivamente los precios de venta Débito/Transferencia de todo el catálogo según el costo y el margen configurado
@@ -1892,6 +1930,16 @@ export default function AdminDashboardPage() {
             }`}
           >
             <Wrench className="w-4 h-4" /> Taller
+          </button>
+          <button
+            onClick={() => setActiveTab('marketing')}
+            className={`px-4 py-3 font-heading text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'marketing'
+                ? 'border-purple-400 text-purple-400 font-black'
+                : 'border-transparent text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-purple-400" /> Marketing & Pop-up
           </button>
         </div>
       </div>
@@ -4829,21 +4877,429 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
                     </div>
-
-                    <a
-                      href={`https://wa.me/${t.phone}?text=Hola%20${encodeURIComponent(
-                        t.client
-                      )}!%20Te%20escribimos%20de%20Oroño%20Bike.`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-heading text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
-                    >
-                      <Send className="w-3.5 h-3.5" /> Avisar por WhatsApp
-                    </a>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB 9: MARKETING & POP-UP PROMOS (LEAD MAGNET)            */}
+        {/* ========================================================= */}
+        {activeTab === 'marketing' && (
+          <div className="space-y-6">
+            {/* Cabecera de la Pestaña */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-heading font-black tracking-wider uppercase rounded-md">
+                    Lead Magnet & Promociones
+                  </span>
+                  {promoSettings.enabled ? (
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md">
+                      ● Activo en la Tienda
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-zinc-100 text-zinc-600 text-[10px] font-bold rounded-md">
+                      ○ Desactivado
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl font-heading font-black text-zinc-950 tracking-tight">
+                  Ventana Emergente de Captación (Pop-up)
+                </h2>
+                <p className="text-xs text-zinc-500 mt-1 max-w-2xl leading-relaxed">
+                  Configurá el pop-up que verán los visitantes al entrar a la web para captar sus correos electrónicos a cambio de un descuento o un regalo físico (como una luz LED).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {promoSavedToast && (
+                  <span className="text-xs font-heading font-bold text-emerald-600 animate-fade-in flex items-center gap-1">
+                    <Check className="w-4 h-4" /> ¡Guardado!
+                  </span>
+                )}
+                <button
+                  onClick={() => handleSavePromoSettings(promoSettings)}
+                  className="bg-zinc-950 hover:bg-zinc-800 text-white font-heading text-xs font-black uppercase tracking-wider px-6 py-3 rounded-2xl flex items-center gap-2 shadow-lg transition-transform active:scale-95 shrink-0"
+                >
+                  <Save className="w-4 h-4 text-purple-400" /> Guardar Cambios
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Formulario de Configuración (7 cols) */}
+              <div className="lg:col-span-7 space-y-6">
+                
+                {/* 1. Interruptor On/Off y Temporizador */}
+                <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs space-y-4">
+                  <h3 className="text-sm font-heading font-black uppercase text-zinc-950 flex items-center gap-2">
+                    <Settings2 className="w-4 h-4 text-purple-600" />
+                    Estado y Disparo de la Ventana
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition-all ${
+                      promoSettings.enabled
+                        ? 'border-emerald-500 bg-emerald-50/50 ring-1 ring-emerald-500'
+                        : 'border-zinc-200 bg-zinc-50 hover:border-zinc-300'
+                    }`}>
+                      <div>
+                        <span className="text-xs font-heading font-bold text-zinc-950 block">
+                          Mostrar en la Tienda
+                        </span>
+                        <span className="text-[11px] text-zinc-500 block mt-0.5">
+                          {promoSettings.enabled ? 'La ventana emergente está visible para nuevos visitantes.' : 'La ventana emergente está apagada y no se muestra.'}
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={promoSettings.enabled}
+                        onChange={(e) => {
+                          const updated = { ...promoSettings, enabled: e.target.checked };
+                          setPromoSettings(updated);
+                          PromoService.saveSettings(updated);
+                        }}
+                        className="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                    </label>
+
+                    <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 space-y-1">
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
+                        Demora antes de saltar (segundos)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={60}
+                          value={promoSettings.delaySeconds}
+                          onChange={(e) => {
+                            const updated = { ...promoSettings, delaySeconds: Number(e.target.value) };
+                            setPromoSettings(updated);
+                            PromoService.saveSettings(updated);
+                          }}
+                          className="w-20 px-3 py-1.5 bg-white border border-zinc-300 rounded-xl text-sm font-mono font-bold text-zinc-900"
+                        />
+                        <span className="text-xs text-zinc-500">segundos después de entrar</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-400 block pt-1">
+                        (También se dispara si en PC mueven el mouse hacia arriba para salir).
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Textos y Contenido Visual */}
+                <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs space-y-4">
+                  <h3 className="text-sm font-heading font-black uppercase text-zinc-950 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-purple-600" />
+                    Textos de la Promoción
+                  </h3>
+
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-1">
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Etiqueta / Badge
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="BENEFICIO EXCLUSIVO"
+                          value={promoSettings.badgeText}
+                          onChange={(e) => {
+                            const updated = { ...promoSettings, badgeText: e.target.value };
+                            setPromoSettings(updated);
+                            PromoService.saveSettings(updated);
+                          }}
+                          className="w-full h-10 px-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-900"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Título Principal *
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="¡10% OFF EN TU PRIMERA COMPRA!"
+                          value={promoSettings.title}
+                          onChange={(e) => {
+                            const updated = { ...promoSettings, title: e.target.value };
+                            setPromoSettings(updated);
+                            PromoService.saveSettings(updated);
+                          }}
+                          className="w-full h-10 px-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-900"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Subtítulo / Mensaje Explicativo *
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Dejanos tu email y recibí tu cupón exclusivo..."
+                        value={promoSettings.subtitle}
+                        onChange={(e) => {
+                          const updated = { ...promoSettings, subtitle: e.target.value };
+                          setPromoSettings(updated);
+                          PromoService.saveSettings(updated);
+                        }}
+                        className="w-full p-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium text-zinc-900 resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                        URL de Imagen de Fondo (Bicicleta / Tienda)
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://images.unsplash.com/..."
+                        value={promoSettings.imageUrl || ''}
+                        onChange={(e) => {
+                          const updated = { ...promoSettings, imageUrl: e.target.value };
+                          setPromoSettings(updated);
+                          PromoService.saveSettings(updated);
+                        }}
+                        className="w-full h-10 px-3 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono text-zinc-600"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Tipo de Beneficio: Descuento vs Regalo Físico */}
+                <div className="bg-white p-6 rounded-3xl border border-zinc-200 shadow-xs space-y-4">
+                  <h3 className="text-sm font-heading font-black uppercase text-zinc-950 flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-purple-600" />
+                    Beneficio que se Entrega al Cliente
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Opción Descuento en % */}
+                    <label
+                      onClick={() => {
+                        const updated: PromoPopupSettings = { ...promoSettings, benefitType: 'discount', couponCode: promoSettings.couponCode || 'BIENVENIDO10' };
+                        setPromoSettings(updated);
+                        PromoService.saveSettings(updated);
+                      }}
+                      className={`p-4 rounded-2xl border cursor-pointer flex flex-col justify-between transition-all ${
+                        promoSettings.benefitType === 'discount'
+                          ? 'border-zinc-950 bg-zinc-50 ring-1 ring-zinc-950'
+                          : 'border-zinc-200 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="radio"
+                          name="benefitType"
+                          checked={promoSettings.benefitType === 'discount'}
+                          onChange={() => {}}
+                          className="text-zinc-950 focus:ring-zinc-950"
+                        />
+                        <Tag className="w-4 h-4 text-zinc-700" />
+                        <span className="text-xs font-heading font-bold text-zinc-950">
+                          Descuento Porcentual (% OFF)
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2 pt-2 border-t border-zinc-200">
+                        <input
+                          type="number"
+                          min={1}
+                          max={90}
+                          value={promoSettings.discountPercent}
+                          onChange={(e) => {
+                            const updated = { ...promoSettings, discountPercent: Number(e.target.value) };
+                            setPromoSettings(updated);
+                            PromoService.saveSettings(updated);
+                          }}
+                          className="w-20 px-2.5 py-1 bg-white border border-zinc-300 rounded-lg text-sm font-mono font-black text-zinc-900"
+                        />
+                        <span className="text-xs font-heading font-bold text-zinc-600">% de Descuento</span>
+                      </div>
+                    </label>
+
+                    {/* Opción Regalo Físico (ej. Luz LED) */}
+                    <label
+                      onClick={() => {
+                        const updated: PromoPopupSettings = { ...promoSettings, benefitType: 'gift', couponCode: promoSettings.couponCode || 'LUZGRATIS' };
+                        setPromoSettings(updated);
+                        PromoService.saveSettings(updated);
+                      }}
+                      className={`p-4 rounded-2xl border cursor-pointer flex flex-col justify-between transition-all ${
+                        promoSettings.benefitType === 'gift'
+                          ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600'
+                          : 'border-zinc-200 hover:border-zinc-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="radio"
+                          name="benefitType"
+                          checked={promoSettings.benefitType === 'gift'}
+                          onChange={() => {}}
+                          className="text-purple-600 focus:ring-purple-600"
+                        />
+                        <Gift className="w-4 h-4 text-purple-600" />
+                        <span className="text-xs font-heading font-bold text-zinc-950">
+                          Regalo / Obsequio Físico
+                        </span>
+                      </div>
+                      <div className="pt-2 border-t border-purple-200">
+                        <input
+                          type="text"
+                          placeholder="Ej: Luz LED Trasera Recargable USB"
+                          value={promoSettings.giftItemName}
+                          onChange={(e) => {
+                            const updated = { ...promoSettings, giftItemName: e.target.value };
+                            setPromoSettings(updated);
+                            PromoService.saveSettings(updated);
+                          }}
+                          className="w-full px-2.5 py-1 bg-white border border-zinc-300 rounded-lg text-xs font-bold text-zinc-900"
+                        />
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Código de Cupón Oficial */}
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl flex items-center justify-between gap-4">
+                    <div>
+                      <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
+                        Código de Cupón para el Checkout *
+                      </label>
+                      <span className="text-[11px] text-zinc-500 block mt-0.5">
+                        Este es el código que el cliente recibirá y pondrá al comprar.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={promoSettings.couponCode}
+                        onChange={(e) => {
+                          const updated = { ...promoSettings, couponCode: e.target.value.toUpperCase().replace(/\s/g, '') };
+                          setPromoSettings(updated);
+                          PromoService.saveSettings(updated);
+                        }}
+                        className="w-40 h-10 px-3 bg-white border-2 border-zinc-950 rounded-xl text-center font-mono font-black text-sm text-zinc-950 uppercase focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Columna Derecha: Previsualización en Vivo y Suscriptores (5 cols) */}
+              <div className="lg:col-span-5 space-y-6">
+                
+                {/* Previsualización en Vivo */}
+                <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-xs space-y-3">
+                  <span className="text-xs font-heading font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+                    <Eye className="w-4 h-4 text-purple-600" /> Previsualización en Vivo del Pop-up
+                  </span>
+
+                  {/* Mockup del Pop-up */}
+                  <div className="bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-lg text-white">
+                    <div className="relative h-28 w-full overflow-hidden">
+                      <img
+                        src={promoSettings.imageUrl || 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=600&q=80'}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+                      <div className="absolute bottom-2 left-4">
+                        <span className="inline-block px-2 py-0.5 bg-amber-400 text-zinc-950 text-[9px] font-heading font-black uppercase rounded-full">
+                          {promoSettings.badgeText || 'BENEFICIO EXCLUSIVO'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-2">
+                      <h4 className="text-sm font-heading font-black text-white leading-tight">
+                        {promoSettings.title || 'Título de la promoción'}
+                      </h4>
+                      <p className="text-[11px] text-zinc-400 line-clamp-2">
+                        {promoSettings.subtitle || 'Descripción de la promoción...'}
+                      </p>
+
+                      <div className="flex gap-1.5 pt-1">
+                        <div className="flex-1 h-8 bg-zinc-900 border border-zinc-700 rounded-lg px-2 text-[10px] text-zinc-500 flex items-center">
+                          ejemplo@email.com
+                        </div>
+                        <div className="h-8 px-3 bg-amber-400 text-zinc-950 font-heading text-[10px] font-black uppercase rounded-lg flex items-center justify-center">
+                          {promoSettings.benefitType === 'gift' ? 'Quiero mi Regalo' : `Quiero mi ${promoSettings.discountPercent}% OFF`}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-zinc-800 flex justify-between items-center text-[10px] text-zinc-500">
+                        <span>Cupón entregado: <strong className="font-mono text-amber-400">{promoSettings.couponCode}</strong></span>
+                        <span className="text-zinc-600">Demora: {promoSettings.delaySeconds}s</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lista de Suscriptores / Leads Captados */}
+                <div className="bg-white p-5 rounded-3xl border border-zinc-200 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                    <div>
+                      <h3 className="text-sm font-heading font-black uppercase text-zinc-950 flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-purple-600" />
+                        Suscriptores Captados
+                      </h3>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">
+                        {promoSubscribers.length} {promoSubscribers.length === 1 ? 'cliente registrado' : 'clientes registrados'}
+                      </p>
+                    </div>
+
+                    {promoSubscribers.length > 0 && (
+                      <button
+                        onClick={handleCopyAllEmails}
+                        className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-heading font-bold uppercase rounded-xl flex items-center gap-1.5 transition-colors"
+                      >
+                        {copiedEmailsToast ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" /> ¡Copiados!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 text-zinc-600" /> Copiar Mails
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {promoSubscribers.length === 0 ? (
+                    <div className="p-6 text-center text-zinc-400 text-xs bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
+                      Aún no se registraron suscriptores. Los correos que dejen los clientes aparecerán listados aquí.
+                    </div>
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto divide-y divide-zinc-100 pr-1 text-xs">
+                      {promoSubscribers.map((sub) => (
+                        <div key={sub.id} className="py-2.5 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-semibold text-zinc-900 block truncate">{sub.email}</span>
+                            <span className="text-[10px] text-zinc-400 font-mono">
+                              {sub.subscribedAt} • Cupón: {sub.couponCode}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => PromoService.deleteSubscriber(sub.id)}
+                            className="text-zinc-400 hover:text-rose-600 p-1"
+                            title="Eliminar de la lista"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
           </div>
         )}
       </main>

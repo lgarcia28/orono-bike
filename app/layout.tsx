@@ -3,6 +3,7 @@ import { Montserrat, Inter } from 'next/font/google';
 import './globals.css';
 import { FloatingActions } from '@/app/components/ui/FloatingActions';
 import { CartProvider } from '@/lib/context/CartContext';
+import { PromoPopup } from '@/app/components/marketing/PromoPopup';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -35,6 +36,7 @@ export default function RootLayout({
         <CartProvider>
           {children}
           <FloatingActions />
+          <PromoPopup />
         </CartProvider>
       </body>
     </html>
