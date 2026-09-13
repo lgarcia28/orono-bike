@@ -1325,24 +1325,10 @@ export function PointOfSaleInterface() {
                 <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-start">
                   {/* 1. Cliente / Titular (4 cols) */}
                   <div className="lg:col-span-4 relative" ref={customerDropdownRef}>
-                    <div className="h-6 flex items-center justify-between mb-1.5">
+                    <div className="h-6 flex items-center mb-1.5">
                       <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 truncate">
                         Cliente / Titular *
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewCustomerForm((prev) => ({
-                            ...prev,
-                            firstName: customerComboboxQuery.trim(),
-                          }));
-                          setShowAddCustomerModal(true);
-                        }}
-                        className="text-[10px] font-heading font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5 shrink-0 ml-1"
-                        title="Registrar nuevo cliente en el directorio"
-                      >
-                        <Plus className="w-3 h-3" /> Nuevo Cliente
-                      </button>
                     </div>
 
                     <div className="relative flex items-center">
@@ -1468,9 +1454,16 @@ export function PointOfSaleInterface() {
                         {/* Botón rápido para dar de alta nuevo cliente si no está */}
                         <div
                           onClick={() => {
+                            const query = customerComboboxQuery.trim();
+                            const digitsOnly = query.replace(/\D/g, '');
+                            const isNumericDoc = digitsOnly.length >= 5 && /^[\d.\s-]+$/.test(query);
+
                             setNewCustomerForm((prev) => ({
                               ...prev,
-                              firstName: customerComboboxQuery.trim(),
+                              firstName: isNumericDoc ? '' : query,
+                              lastName: '',
+                              doc: isNumericDoc ? query : '',
+                              docType: digitsOnly.length === 11 ? 'CUIT' : 'DNI',
                             }));
                             setIsCustomerDropdownOpen(false);
                             setShowAddCustomerModal(true);
@@ -1481,7 +1474,9 @@ export function PointOfSaleInterface() {
                             <Plus className="w-3.5 h-3.5 text-emerald-700" />
                             <span>
                               {customerComboboxQuery.trim()
-                                ? `Registrar "${customerComboboxQuery.trim()}" como Nuevo Cliente`
+                                ? (customerComboboxQuery.trim().replace(/\D/g, '').length >= 5 && /^[\d.\s-]+$/.test(customerComboboxQuery.trim())
+                                    ? `Registrar cliente con DNI/CUIT "${customerComboboxQuery.trim()}"`
+                                    : `Registrar "${customerComboboxQuery.trim()}" como Nuevo Cliente`)
                                 : '+ Registrar Nuevo Cliente en el Directorio'}
                             </span>
                           </span>
