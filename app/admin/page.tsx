@@ -339,11 +339,21 @@ export default function AdminDashboardPage() {
     variantId: string;
     quantity: number;
     unitCost: number;
+    // Soporte para artículos nuevos creados en la misma factura
+    isNewProduct?: boolean;
+    newProductTitle?: string;
+    newProductBrand?: string;
+    newProductCategory?: string;
+    newProductSize?: string;
+    newProductColor?: string;
   }
 
   const [showNewReceptionModal, setShowNewReceptionModal] = useState(false);
   const [receptionForm, setReceptionForm] = useState<{
     supplierId: string;
+    invoiceType: string;
+    invoicePos: string;
+    invoiceNum: string;
     invoiceNumber: string;
     date: string;
     paymentMethod: 'Efectivo' | 'Transferencia' | 'Crédito' | 'Débito';
@@ -351,6 +361,9 @@ export default function AdminDashboardPage() {
     items: ReceptionItemDraft[];
   }>({
     supplierId: 'sup-01',
+    invoiceType: 'A',
+    invoicePos: '0001',
+    invoiceNum: '',
     invoiceNumber: '',
     date: new Date().toISOString().slice(0, 10),
     paymentMethod: 'Transferencia',
@@ -367,6 +380,19 @@ export default function AdminDashboardPage() {
   });
 
   const [receptionProductSearch, setReceptionProductSearch] = useState('');
+  // Modal para dar de alta producto nuevo rápidamente desde la planilla
+  const [showQuickNewProductModal, setShowQuickNewProductModal] = useState(false);
+  const [quickNewProductForm, setQuickNewProductForm] = useState({
+    title: '',
+    brand: 'SCOTT',
+    category: 'MTB',
+    size: 'M',
+    color: 'Negro Mate',
+    sku: '',
+    unitCost: 0,
+    quantity: 1,
+    profitMargin: 60,
+  });
   
   // Estado de IA para Escaneo de Facturas (Gemini 1.5 Flash)
   const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
@@ -758,7 +784,10 @@ export default function AdminDashboardPage() {
     setReceptionProductSearch('');
     setReceptionForm({
       supplierId: suppliers[0]?.id || 'sup-01',
-      invoiceNumber: '',
+      invoiceType: 'A',
+      invoicePos: '0001',
+      invoiceNum: '',
+      invoiceNumber: 'A-0001-00000000',
       date: new Date().toISOString().slice(0, 10),
       paymentMethod: 'Transferencia',
       notes: '',
@@ -962,11 +991,35 @@ export default function AdminDashboardPage() {
         }
       }
 
-      // 3. Cargar en el estado de la planilla
+      // 3. Cargar en el estado de la planilla separando Tipo, Punto de Venta y Número
+      const rawInv = (extracted.invoiceNumber || '').trim();
+      let detectedType = 'A';
+      let detectedPos = '0001';
+      let detectedNum = '';
+
+      if (rawInv) {
+        // Ej: FC-A-0002-00012345 o A-0002-00012345 o 0002-00012345
+        const parts = rawInv.split('-').map((s: string) => s.trim());
+        if (parts.length >= 3) {
+          const possibleType = parts[0].replace(/[^A-Z]/gi, '');
+          if (['A', 'B', 'C', 'M'].includes(possibleType)) detectedType = possibleType;
+          detectedPos = parts[1].padStart(4, '0').slice(-4);
+          detectedNum = parts[2].padStart(8, '0').slice(-8);
+        } else if (parts.length === 2) {
+          detectedPos = parts[0].padStart(4, '0').slice(-4);
+          detectedNum = parts[1].padStart(8, '0').slice(-8);
+        } else {
+          detectedNum = rawInv.padStart(8, '0').slice(-8);
+        }
+      }
+
       setReceptionForm((prev) => ({
         ...prev,
         supplierId: targetSupplierId,
-        invoiceNumber: extracted.invoiceNumber || prev.invoiceNumber,
+        invoiceType: detectedType,
+        invoicePos: detectedPos,
+        invoiceNum: detectedNum,
+        invoiceNumber: `${detectedType}-${detectedPos}-${detectedNum || '00000000'}`,
         date: extracted.invoiceDate || prev.date,
         paymentMethod: extracted.paymentMethod || prev.paymentMethod,
         notes: extracted.notes || prev.notes,
@@ -1060,6 +1113,105 @@ export default function AdminDashboardPage() {
     }));
   };
 
+  // Alta rápida de producto nuevo desde la planilla de recepción
+  const handleAddQuickNewProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickNewProductForm.title.trim()) {
+      alert('Ingresá el nombre o descripción del producto');
+      return;
+    }
+
+    const prodId = `prod-custom-${Date.now()}`;
+    const varId = `var-${Date.now()}`;
+    const cost = Math.max(0, Number(quickNewProductForm.unitCost) || 0);
+    const margin = Number(quickNewProductForm.profitMargin) || 60;
+    const price = Math.round(cost * (1 + margin / 100));
+    const qty = Math.max(1, Number(quickNewProductForm.quantity) || 1);
+
+    const nowIso = new Date().toISOString();
+    const newProd: ProductWithVariants = {
+      id: prodId,
+      title: quickNewProductForm.title.trim(),
+      slug: quickNewProductForm.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      brand: quickNewProductForm.brand.toUpperCase(),
+      category: quickNewProductForm.category.toUpperCase(),
+      description: `Ingresado por factura de compra`,
+      specs: {},
+      images: [
+        'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=800&q=80',
+      ],
+      is_active: true,
+      created_at: nowIso,
+      updated_at: nowIso,
+      variants: [
+        {
+          id: varId,
+          product_id: prodId,
+          sku: quickNewProductForm.sku.trim() || `SKU-${Date.now().toString().slice(-6)}`,
+          barcode: null,
+          size: quickNewProductForm.size || 'Único',
+          wheel_size: quickNewProductForm.category === 'MTB' ? '29"' : null,
+          color: quickNewProductForm.color || 'Negro Mate',
+          color_hex: '#18181b',
+          cost,
+          profit_margin_percent: margin,
+          price,
+          compare_at_price: null,
+          stock: 0, // El stock se sumará al confirmar la factura
+          min_stock_alert: 2,
+          created_at: nowIso,
+          updated_at: nowIso,
+        },
+      ],
+    };
+
+    // Agregar a la lista de productos del sistema
+    setProducts((prev) => {
+      const updated = [newProd, ...prev];
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (err) {}
+      return updated;
+    });
+
+    // Agregar o reemplazar en la planilla
+    setReceptionForm((prev) => {
+      const firstRow = prev.items[0];
+      const isInitialDefaultRow =
+        prev.items.length === 1 &&
+        firstRow &&
+        firstRow.quantity === 1 &&
+        firstRow.productId === (products[0]?.id || '');
+
+      const newRow: ReceptionItemDraft = {
+        id: isInitialDefaultRow ? firstRow.id : `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        productId: newProd.id,
+        variantId: varId,
+        quantity: qty,
+        unitCost: cost,
+      };
+
+      return {
+        ...prev,
+        items: isInitialDefaultRow ? [newRow] : [...prev.items, newRow],
+      };
+    });
+
+    setShowQuickNewProductModal(false);
+    setReceptionProductSearch('');
+    setQuickNewProductForm({
+      title: '',
+      brand: 'SCOTT',
+      category: 'MTB',
+      size: 'M',
+      color: 'Negro Mate',
+      sku: '',
+      unitCost: 0,
+      quantity: 1,
+      profitMargin: 60,
+    });
+  };
+
   const handleSaveReception = (e: React.FormEvent) => {
     e.preventDefault();
     if (receptionForm.items.length === 0) {
@@ -1070,17 +1222,27 @@ export default function AdminDashboardPage() {
     const supplier = suppliers.find((s) => s.id === receptionForm.supplierId) || suppliers[0];
     const nowStr = `${receptionForm.date} ${new Date().toLocaleTimeString().slice(0, 5)}`;
 
+    // Armar número de factura formal respetando tipo-PV-número con ceros automáticos
+    const type = (receptionForm.invoiceType || 'A').toUpperCase().trim();
+    const pos = (receptionForm.invoicePos || '1').padStart(4, '0');
+    const num = (receptionForm.invoiceNum || '').padStart(8, '0');
+    const computedInvoiceNumber = num ? `${type}-${pos}-${num}` : (receptionForm.invoiceNumber.trim() || `FC-INT-${Date.now().toString().slice(-6)}`);
+
     // Armar items recibidos con datos completos
     const parsedItems = receptionForm.items.map((row) => {
       const selectedProd = products.find((p) => p.id === row.productId) || products[0];
-      const selectedVar = selectedProd.variants.find((v) => v.id === row.variantId) || selectedProd.variants[0];
+      const selectedVar = selectedProd?.variants.find((v) => v.id === row.variantId) || selectedProd?.variants[0] || {
+        id: row.variantId,
+        size: 'Único',
+        color: 'Estándar',
+      };
       const qty = Math.max(1, Number(row.quantity) || 1);
       const unitCost = Math.max(0, Number(row.unitCost) || 0);
       const subtotal = qty * unitCost;
 
       return {
-        productId: selectedProd.id,
-        productTitle: selectedProd.title,
+        productId: selectedProd ? selectedProd.id : row.productId,
+        productTitle: selectedProd ? selectedProd.title : 'Artículo Nuevo',
         variantId: selectedVar.id,
         variantDetails: `${selectedVar.size} (${selectedVar.color})`,
         quantity: qty,
@@ -1096,7 +1258,7 @@ export default function AdminDashboardPage() {
       id: `REC-${Date.now().toString().slice(-4)}`,
       supplierId: supplier.id,
       supplierName: supplier.name,
-      invoiceNumber: receptionForm.invoiceNumber.trim() || `FC-INT-${Date.now().toString().slice(-6)}`,
+      invoiceNumber: computedInvoiceNumber,
       date: nowStr,
       paymentMethod: receptionForm.paymentMethod,
       items: parsedItems,
@@ -2571,8 +2733,9 @@ export default function AdminDashboardPage() {
                   <form onSubmit={handleSaveReception} className="flex flex-col flex-1 overflow-hidden pt-4 gap-4">
                     <div className="overflow-y-auto pr-1 space-y-4 flex-1">
                       {/* Cabecera de la Factura */}
-                      <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div>
+                      <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+                        {/* 1. Proveedor (4 cols) */}
+                        <div className="lg:col-span-4">
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700">
                               Proveedor *
@@ -2580,7 +2743,7 @@ export default function AdminDashboardPage() {
                             <button
                               type="button"
                               onClick={() => setShowAddSupplierModal(true)}
-                              className="text-[10px] font-heading font-bold text-zinc-950 hover:underline flex items-center gap-0.5"
+                              className="text-[10px] font-heading font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5"
                               title="Crear un nuevo proveedor"
                             >
                               <Plus className="w-3 h-3" /> + Nuevo Proveedor
@@ -2609,21 +2772,100 @@ export default function AdminDashboardPage() {
                           </select>
                         </div>
 
-                        <div>
+                        {/* 2. Factura Dividida: Tipo, Pto. Venta y Número (4 cols) */}
+                        <div className="lg:col-span-4">
                           <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
-                            N° Factura / Remito *
+                            Comprobante: Tipo · Pto. Venta · Número *
                           </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="FC-0002-00049281"
-                            value={receptionForm.invoiceNumber}
-                            onChange={(e) => setReceptionForm({ ...receptionForm, invoiceNumber: e.target.value })}
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-zinc-950"
-                          />
+                          <div className="grid grid-cols-12 gap-1.5 items-center">
+                            {/* Tipo */}
+                            <div className="col-span-3">
+                              <select
+                                value={receptionForm.invoiceType}
+                                onChange={(e) => {
+                                  const t = e.target.value;
+                                  const pos = receptionForm.invoicePos ? receptionForm.invoicePos.padStart(4, '0') : '0001';
+                                  const num = receptionForm.invoiceNum ? receptionForm.invoiceNum.padStart(8, '0') : '00000000';
+                                  setReceptionForm({
+                                    ...receptionForm,
+                                    invoiceType: t,
+                                    invoiceNumber: `${t}-${pos}-${num}`,
+                                  });
+                                }}
+                                className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-heading font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                              >
+                                <option value="A">FC A</option>
+                                <option value="B">FC B</option>
+                                <option value="C">FC C</option>
+                                <option value="M">FC M</option>
+                                <option value="REM">REM</option>
+                              </select>
+                            </div>
+
+                            {/* Punto de Venta (4 dígitos con auto-relleno de ceros al salir o escribir) */}
+                            <div className="col-span-4 relative">
+                              <input
+                                type="text"
+                                maxLength={4}
+                                required
+                                placeholder="0001"
+                                value={receptionForm.invoicePos}
+                                onChange={(e) => {
+                                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                                  setReceptionForm({
+                                    ...receptionForm,
+                                    invoicePos: raw,
+                                  });
+                                }}
+                                onBlur={(e) => {
+                                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                                  const padded = raw ? raw.padStart(4, '0') : '0001';
+                                  const num = receptionForm.invoiceNum ? receptionForm.invoiceNum.padStart(8, '0') : '00000000';
+                                  setReceptionForm({
+                                    ...receptionForm,
+                                    invoicePos: padded,
+                                    invoiceNumber: `${receptionForm.invoiceType}-${padded}-${num}`,
+                                  });
+                                }}
+                                className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                title="Punto de venta (4 dígitos, se completan ceros automáticamente)"
+                              />
+                            </div>
+
+                            {/* Número de Factura (8 dígitos con auto-relleno de ceros) */}
+                            <div className="col-span-5 relative">
+                              <input
+                                type="text"
+                                maxLength={8}
+                                required
+                                placeholder="00012345"
+                                value={receptionForm.invoiceNum}
+                                onChange={(e) => {
+                                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                                  setReceptionForm({
+                                    ...receptionForm,
+                                    invoiceNum: raw,
+                                  });
+                                }}
+                                onBlur={(e) => {
+                                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                                  const padded = raw ? raw.padStart(8, '0') : '';
+                                  const pos = receptionForm.invoicePos ? receptionForm.invoicePos.padStart(4, '0') : '0001';
+                                  setReceptionForm({
+                                    ...receptionForm,
+                                    invoiceNum: padded,
+                                    invoiceNumber: `${receptionForm.invoiceType}-${pos}-${padded || '00000000'}`,
+                                  });
+                                }}
+                                className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                title="Número de comprobante (hasta 8 dígitos, se completan ceros a la izquierda automáticamente)"
+                              />
+                            </div>
+                          </div>
                         </div>
 
-                        <div>
+                        {/* 3. Fecha Factura (2 cols) */}
+                        <div className="lg:col-span-2">
                           <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
                             Fecha Factura *
                           </label>
@@ -2632,47 +2874,66 @@ export default function AdminDashboardPage() {
                             required
                             value={receptionForm.date}
                             onChange={(e) => setReceptionForm({ ...receptionForm, date: e.target.value })}
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                            className="w-full px-2.5 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold focus:outline-none focus:ring-1 focus:ring-zinc-950"
                           />
                         </div>
 
-                        <div>
+                        {/* 4. Medio de Pago (2 cols) */}
+                        <div className="lg:col-span-2">
                           <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
                             Medio de Pago *
                           </label>
                           <select
                             value={receptionForm.paymentMethod}
                             onChange={(e) => setReceptionForm({ ...receptionForm, paymentMethod: e.target.value as any })}
-                            className="w-full px-3 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                            className="w-full px-2.5 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none focus:ring-1 focus:ring-zinc-950"
                           >
-                            <option value="Transferencia">Transferencia Bancaria</option>
+                            <option value="Transferencia">Transferencia</option>
                             <option value="Efectivo">Efectivo Caja</option>
-                            <option value="Crédito">Crédito / Cuenta Corriente</option>
+                            <option value="Crédito">Cta. Cte. / Crédito</option>
                             <option value="Débito">Débito</option>
                           </select>
                         </div>
                       </div>
 
-                      {/* Buscador Rápido de Producto por Palabras o Código SKU */}
+                      {/* Buscador Rápido de Producto por Descripción / Código con Alta Rápida de Producto Nuevo */}
                       <div className="relative">
-                        <div className="relative flex items-center">
-                          <Search className="w-4 h-4 absolute left-3.5 text-zinc-400 pointer-events-none" />
-                          <input
-                            type="text"
-                            placeholder="🔍 Buscar artículo por palabras o código SKU (ej: Spark, XT, SC-SPK, SC-CAS, SHI-PD...) para agregar a la planilla..."
-                            value={receptionProductSearch}
-                            onChange={(e) => setReceptionProductSearch(e.target.value)}
-                            className="w-full pl-10 pr-9 py-2.5 bg-white border-2 border-zinc-200 focus:border-zinc-950 rounded-2xl text-xs font-medium placeholder:text-zinc-400 focus:outline-none shadow-xs transition-colors"
-                          />
-                          {receptionProductSearch && (
-                            <button
-                              type="button"
-                              onClick={() => setReceptionProductSearch('')}
-                              className="absolute right-3.5 text-zinc-400 hover:text-zinc-700 text-xs font-bold"
-                            >
-                              ✕
-                            </button>
-                          )}
+                        <div className="flex gap-2">
+                          <div className="relative flex-1 flex items-center">
+                            <Search className="w-4 h-4 absolute left-3.5 text-zinc-400 pointer-events-none" />
+                            <input
+                              type="text"
+                              placeholder="🔍 Buscar artículo por descripción, nombre o código SKU (ej: Spark, Cuadro Volta, Cadena Shimano, Casco, etc)..."
+                              value={receptionProductSearch}
+                              onChange={(e) => setReceptionProductSearch(e.target.value)}
+                              className="w-full pl-10 pr-9 py-2.5 bg-white border-2 border-zinc-200 focus:border-zinc-950 rounded-2xl text-xs font-medium placeholder:text-zinc-400 focus:outline-none shadow-xs transition-colors"
+                            />
+                            {receptionProductSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setReceptionProductSearch('')}
+                                className="absolute right-3.5 text-zinc-400 hover:text-zinc-700 text-xs font-bold"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuickNewProductForm((prev) => ({
+                                ...prev,
+                                title: receptionProductSearch.trim(),
+                              }));
+                              setShowQuickNewProductModal(true);
+                            }}
+                            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-heading font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-xs transition-all shrink-0"
+                            title="Dar de alta un producto nuevo en el catálogo y stock"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Nuevo Producto</span>
+                          </button>
                         </div>
 
                         {/* Desplegable de Resultados de Búsqueda por Palabras o Código */}
@@ -2680,7 +2941,19 @@ export default function AdminDashboardPage() {
                           <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-2xl shadow-2xl z-30 max-h-64 overflow-y-auto divide-y divide-zinc-100 animate-fadeIn">
                             <div className="px-3.5 py-2 bg-zinc-50 text-[10px] font-heading font-bold uppercase text-zinc-500 tracking-wider flex justify-between items-center">
                               <span>Coincidencias encontradas ({filteredReceptionSearchResults.length})</span>
-                              <span className="text-zinc-400">Clic para sumar a la planilla</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setQuickNewProductForm((prev) => ({
+                                    ...prev,
+                                    title: receptionProductSearch.trim(),
+                                  }));
+                                  setShowQuickNewProductModal(true);
+                                }}
+                                className="text-emerald-700 font-bold hover:underline"
+                              >
+                                ¿No está? + Ingresar como Producto Nuevo
+                              </button>
                             </div>
                             {filteredReceptionSearchResults.map(({ product, variant }) => (
                               <div
@@ -2712,6 +2985,26 @@ export default function AdminDashboardPage() {
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        )}
+                        {receptionProductSearch.trim().length > 1 && filteredReceptionSearchResults.length === 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-2xl shadow-xl z-30 p-4 text-center animate-fadeIn">
+                            <p className="text-xs text-zinc-600 mb-2">
+                              No se encontró ningún artículo con la descripción <strong>"{receptionProductSearch}"</strong>
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuickNewProductForm((prev) => ({
+                                  ...prev,
+                                  title: receptionProductSearch.trim(),
+                                }));
+                                setShowQuickNewProductModal(true);
+                              }}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-heading font-bold uppercase inline-flex items-center gap-1.5 shadow-sm"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Ingresar "{receptionProductSearch}" como Producto Nuevo
+                            </button>
                           </div>
                         )}
                       </div>
@@ -3005,6 +3298,207 @@ export default function AdminDashboardPage() {
                         className="bg-zinc-950 text-white px-5 py-2.5 rounded-xl text-xs font-heading font-bold uppercase tracking-wider hover:bg-zinc-800 shadow-md"
                       >
                         Guardar Proveedor
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal para Dar de Alta Producto Nuevo Rápido desde la Planilla */}
+            {showQuickNewProductModal && (
+              <div className="fixed inset-0 z-[75] bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-zinc-200 animate-fadeIn">
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-zinc-200">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+                        <Plus className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-heading font-black text-zinc-950">
+                          Ingresar Producto Nuevo al Stock
+                        </h3>
+                        <p className="text-[11px] text-zinc-500">
+                          Se agregará al catálogo y a esta factura de compra
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickNewProductModal(false)}
+                      className="text-zinc-400 hover:text-zinc-700 text-base font-bold p-1 rounded-lg"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAddQuickNewProduct} className="space-y-4">
+                    {/* Título / Descripción */}
+                    <div>
+                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Descripción o Nombre del Producto *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej: Spark RC Team Issue 2024 / Cadena Shimano Deore 12v / Casco Scott Centric"
+                        value={quickNewProductForm.title}
+                        onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, title: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                      />
+                    </div>
+
+                    {/* Marca & Categoría */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Marca *
+                        </label>
+                        <select
+                          value={quickNewProductForm.brand}
+                          onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, brand: e.target.value })}
+                          className="w-full px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none"
+                        >
+                          <option value="SCOTT">SCOTT</option>
+                          <option value="VOLTA">VOLTA</option>
+                          <option value="RALEIGH">RALEIGH</option>
+                          <option value="SARS">SARS</option>
+                          <option value="ZION">ZION</option>
+                          <option value="SHIMANO">SHIMANO</option>
+                          <option value="GENERAL">OTRA / GENERAL</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Categoría *
+                        </label>
+                        <select
+                          value={quickNewProductForm.category}
+                          onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, category: e.target.value })}
+                          className="w-full px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold uppercase focus:outline-none"
+                        >
+                          <option value="MTB">MTB</option>
+                          <option value="RUTA">RUTA</option>
+                          <option value="GRAVEL">GRAVEL</option>
+                          <option value="COMPONENTES">COMPONENTES</option>
+                          <option value="ACCESORIOS">ACCESORIOS</option>
+                          <option value="PASEO">PASEO</option>
+                          <option value="NIÑOS">NIÑOS</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Talle, Color y SKU */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Talle / Medida
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="M / L / 29 / Único"
+                          value={quickNewProductForm.size}
+                          onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, size: e.target.value })}
+                          className="w-full px-2.5 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Color
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Negro Mate / Raw"
+                          value={quickNewProductForm.color}
+                          onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, color: e.target.value })}
+                          className="w-full px-2.5 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Código SKU
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Auto si se omite"
+                          value={quickNewProductForm.sku}
+                          onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, sku: e.target.value })}
+                          className="w-full px-2.5 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Costo, Margen y Cantidad de la Factura */}
+                    <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl grid grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Cant. a Ingresar *
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          required
+                          value={quickNewProductForm.quantity}
+                          onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                          className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Costo Unit. ($) *
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          required
+                          placeholder="0"
+                          value={quickNewProductForm.unitCost || ''}
+                          onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, unitCost: Math.max(0, parseInt(e.target.value) || 0) })}
+                          className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-right focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Margen Ganancia %
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={quickNewProductForm.profitMargin}
+                          onChange={(e) => setQuickNewProductForm({ ...quickNewProductForm, profitMargin: parseInt(e.target.value) || 60 })}
+                          className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Resumen de Precio de Venta Calculado */}
+                    <div className="flex items-center justify-between px-3.5 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
+                      <span className="font-heading font-bold text-emerald-900">
+                        Precio Débito/Transferencia calculado:
+                      </span>
+                      <span className="font-heading font-black text-sm text-emerald-800">
+                        {formatCurrency(Math.round((quickNewProductForm.unitCost || 0) * (1 + (quickNewProductForm.profitMargin || 60) / 100)))}
+                      </span>
+                    </div>
+
+                    {/* Botones */}
+                    <div className="flex justify-end gap-2.5 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickNewProductModal(false)}
+                        className="px-4 py-2 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-heading font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Agregar a la Planilla & Stock
                       </button>
                     </div>
                   </form>
