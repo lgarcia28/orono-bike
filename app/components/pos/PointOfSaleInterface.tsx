@@ -1692,8 +1692,8 @@ export function PointOfSaleInterface() {
       {/* MODAL 2: NUEVO CLIENTE */}
       {/* ========================================================================= */}
       {showAddCustomerModal && (
-        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn">
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn relative z-[101]">
             <div className="flex items-center justify-between pb-4 border-b border-zinc-200 mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-zinc-950 text-white flex items-center justify-center">
@@ -1909,8 +1909,8 @@ export function PointOfSaleInterface() {
       {/* MODAL 4: VISUALIZACIÓN / IMPRESIÓN OFICIAL DE FACTURA O REMITO (PDF) */}
       {/* ========================================================================= */}
       {showViewInvoiceModal && selectedInvoiceToView && (
-        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-3xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto flex flex-col">
+        <div className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-3xl w-full shadow-2xl border border-zinc-200 animate-fadeIn my-auto flex flex-col relative z-[101]">
             {/* Header de controles de la factura */}
             <div className="flex items-center justify-between pb-4 border-b border-zinc-200 mb-6 print:hidden">
               <div className="flex items-center gap-2">

@@ -4211,7 +4211,7 @@ export default function AdminDashboardPage() {
 
             {/* Modal para Agregar Cliente Manual */}
             {showAddCustomerModal && (
-              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn">
                   <h3 className="text-xl font-heading font-black text-zinc-950 mb-2">
                     Registrar Nuevo Cliente
