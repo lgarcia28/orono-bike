@@ -1538,34 +1538,19 @@ export function PointOfSaleInterface() {
                         </select>
                       </div>
 
-                      {/* Botones de Selección de Punto de Venta (PV 1 o PV 2) */}
+                      {/* Punto de Venta */}
                       <div className="col-span-4">
-                        <div className="grid grid-cols-2 bg-zinc-100 p-0.5 rounded-xl border border-zinc-300 h-[34px] items-center">
-                          <button
-                            type="button"
-                            onClick={() => handleSelectPos('0001')}
-                            className={`h-full rounded-lg text-xs font-mono font-black transition-all flex items-center justify-center ${
-                              invoiceForm.invoicePos === '0001'
-                                ? 'bg-zinc-950 text-white shadow-xs'
-                                : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200/50'
-                            }`}
-                            title="Punto de Venta 1 (0001 - Mostrador)"
-                          >
-                            PV 1
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleSelectPos('0002')}
-                            className={`h-full rounded-lg text-xs font-mono font-black transition-all flex items-center justify-center ${
-                              invoiceForm.invoicePos === '0002'
-                                ? 'bg-zinc-950 text-white shadow-xs'
-                                : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-200/50'
-                            }`}
-                            title="Punto de Venta 2 (0002 - Web Services / Local)"
-                          >
-                            PV 2
-                          </button>
-                        </div>
+                        <select
+                          value={invoiceForm.invoicePos}
+                          onChange={(e) => handleSelectPos(e.target.value)}
+                          className="w-full px-2 py-2 bg-white border border-zinc-300 rounded-xl text-xs font-mono font-black text-center text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                        >
+                          <option value="0001">PV 0001</option>
+                          <option value="0002">PV 0002</option>
+                          <option value="0003">PV 0003</option>
+                          <option value="0004">PV 0004</option>
+                          <option value="0005">PV 0005</option>
+                        </select>
                       </div>
 
                       {/* Número de Factura: Auto-selección al hacer clic y botón ✕ para borrar directo */}
