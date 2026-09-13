@@ -663,6 +663,146 @@ export default function AdminDashboardPage() {
     return { label: 'Remito / Ticket Local', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
   };
 
+  const handleDownloadInvoice = (customer: CustomerRecord, purchase: any) => {
+    const badge = getInvoiceTypeBadge(purchase.invoiceType);
+    const invoiceNum = purchase.invoiceId || purchase.orderId || `FAC-${Date.now().toString().slice(-6)}`;
+    const isRemito = (purchase.invoiceType || '').toUpperCase().includes('REMITO') || (purchase.invoiceType || '').toUpperCase().includes('TICKET');
+    const docTitle = isRemito ? 'REMITO DE ENTREGA' : `FACTURA ELECTRÓNICA (${badge.label.toUpperCase()})`;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=900');
+    if (!printWindow) {
+      alert('Por favor habilita las ventanas emergentes (popups) en tu navegador para descargar el comprobante.');
+      return;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${docTitle} - ${invoiceNum} - Oroño Bike</title>
+          <meta charset="utf-8" />
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #18181b; padding: 40px; max-width: 800px; margin: 0 auto; background: #fff; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #18181b; padding-bottom: 20px; margin-bottom: 24px; }
+            .brand-name { font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -0.5px; }
+            .brand-sub { font-size: 11px; color: #71717a; margin-top: 4px; }
+            .doc-box { text-align: right; }
+            .doc-type { font-size: 18px; font-weight: 800; color: #09090b; }
+            .doc-number { font-family: monospace; font-size: 14px; font-weight: 700; color: #27272a; margin-top: 4px; }
+            .doc-date { font-size: 11px; color: #71717a; margin-top: 2px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; font-size: 12px; background: #f4f4f5; padding: 16px; border-radius: 12px; }
+            .info-col h4 { font-size: 10px; text-transform: uppercase; font-weight: 800; color: #71717a; letter-spacing: 0.5px; margin-bottom: 6px; }
+            .info-row { margin-bottom: 4px; }
+            .info-row strong { color: #09090b; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 12px; }
+            th { text-align: left; background: #18181b; color: #fff; padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+            td { padding: 12px; border-bottom: 1px solid #e4e4e7; }
+            .item-desc { font-weight: 600; color: #09090b; }
+            .item-bikes { font-size: 11px; color: #059669; font-weight: 600; margin-top: 4px; }
+            .totals { display: flex; justify-content: flex-end; margin-bottom: 30px; }
+            .total-card { width: 280px; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 12px; padding: 16px; }
+            .total-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; color: #52525b; }
+            .total-row.final { border-top: 2px solid #18181b; padding-top: 8px; margin-top: 8px; font-size: 16px; font-weight: 900; color: #09090b; font-family: monospace; }
+            .footer { border-top: 1px dashed #d4d4d8; padding-top: 16px; text-align: center; font-size: 11px; color: #71717a; line-height: 1.5; }
+            .footer strong { color: #18181b; }
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="brand-name">Oroño Bike</div>
+              <div class="brand-sub">Tienda Oficial & Taller Especializado</div>
+              <div class="brand-sub">Bv. Nicasio Oroño 1234 · Rosario, Santa Fe</div>
+              <div class="brand-sub">CUIT: 30-71889922-4 · IVA Resp. Inscripto</div>
+            </div>
+            <div class="doc-box">
+              <div class="doc-type">${docTitle}</div>
+              <div class="doc-number">N° ${invoiceNum}</div>
+              <div class="doc-date">Fecha: ${purchase.date}</div>
+              ${purchase.orderId ? `<div class="doc-date">Orden: ${purchase.orderId}</div>` : ''}
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-col">
+              <h4>Datos del Cliente</h4>
+              <div class="info-row"><strong>Nombre / Razón Social:</strong> ${customer.lastName}, ${customer.firstName}</div>
+              <div class="info-row"><strong>${customer.docType}:</strong> ${customer.doc || '-'}</div>
+              <div class="info-row"><strong>Teléfono:</strong> ${customer.phone || '-'}</div>
+              ${customer.email ? `<div class="info-row"><strong>Email:</strong> ${customer.email}</div>` : ''}
+            </div>
+            <div class="info-col">
+              <h4>Condiciones de Venta</h4>
+              <div class="info-row"><strong>Comprobante:</strong> ${badge.label}</div>
+              <div class="info-row"><strong>Condición:</strong> Pagado / Entregado</div>
+              <div class="info-row"><strong>Garantía:</strong> Oficial Oroño Bike</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 60px;">Cant.</th>
+                <th>Descripción / Artículo</th>
+                <th style="text-align: right; width: 140px;">Precio Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight: 700; font-family: monospace;">1 u.</td>
+                <td>
+                  <div class="item-desc">${purchase.itemsSummary || 'Artículos varios de bicicletería'}</div>
+                  ${purchase.bicyclesBought && purchase.bicyclesBought.length > 0 ? `<div class="item-bikes">🚲 ${purchase.bicyclesBought.join(', ')}</div>` : ''}
+                </td>
+                <td style="text-align: right; font-weight: 700; font-family: monospace;">
+                  ${formatCurrency(purchase.total)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="total-card">
+              <div class="total-row">
+                <span>Subtotal Neto:</span>
+                <span>${formatCurrency(Math.round(purchase.total / 1.21))}</span>
+              </div>
+              <div class="total-row">
+                <span>IVA (21%):</span>
+                <span>${formatCurrency(Math.round(purchase.total - purchase.total / 1.21))}</span>
+              </div>
+              <div class="total-row final">
+                <span>TOTAL ARS:</span>
+                <span>${formatCurrency(purchase.total)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p><strong>¡Gracias por tu compra en Oroño Bike!</strong></p>
+            <p>Comprobante válido para retiro de mercadería y activación de garantía de servicio técnico.</p>
+            <p style="margin-top: 4px; font-size: 10px; color: #a1a1aa;">www.oronobike.com.ar · Rosario, Santa Fe</p>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   // Preset de fechas
   const handleSelectPreset = (preset: DatePreset) => {
     setDatePreset(preset);
@@ -3798,7 +3938,7 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4 min-w-[160px]">Contacto (Tel / Email)</th>
                       <th className="py-3 px-4 min-w-[180px]">Compras Realizadas</th>
                       <th className="py-3 px-4 text-right min-w-[150px]">Total Invertido ($ ARS)</th>
-                      <th className="py-3 px-4 text-center w-36">Acciones</th>
+                      <th className="py-3 px-4 text-center w-16"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 font-medium">
@@ -3842,9 +3982,23 @@ export default function AdminDashboardPage() {
                               </span>
                             </td>
                             <td className="py-3 px-4">
-                              <div className="text-zinc-800 font-mono text-[11px] flex items-center gap-1">
-                                <span>📞</span>
-                                <span>{cust.phone}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-zinc-800 font-mono text-[11px] font-semibold">
+                                  {cust.phone}
+                                </span>
+                                <a
+                                  href={`https://wa.me/${cust.phone.replace(/[^0-9]/g, '')}?text=Hola%20${encodeURIComponent(
+                                    cust.firstName
+                                  )}!%20Te%20contactamos%20de%20Oroño%20Bike.`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`Escribir por WhatsApp a ${cust.firstName}`}
+                                  className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-all inline-flex items-center shrink-0"
+                                >
+                                  <svg className="w-4 h-4 fill-emerald-600" viewBox="0 0 24 24">
+                                    <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.075-2.001-.468-1.579-.655-2.574-2.275-2.651-2.381-.077-.105-.634-.844-.634-1.611 0-.767.401-1.144.544-1.301.144-.157.315-.196.421-.196.105 0 .21.002.302.007.097.005.228-.037.356.27.133.319.455 1.109.495 1.191.04.082.067.178.013.285-.054.107-.081.174-.16.268-.079.094-.167.21-.238.282-.08.081-.163.169-.07.329.093.16.413.682.886 1.103.609.542 1.123.71 1.282.79.16.08.254.067.348-.041.094-.108.402-.468.51-.628.107-.16.214-.134.361-.08.147.054.938.442 1.1.523.161.08.269.12.309.187.04.067.04.389-.104.794zM12 2C6.477 2 2 6.477 2 12c0 1.891.524 3.66 1.434 5.176L2 22l4.954-1.385A9.956 9.956 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.093c-1.636 0-3.158-.49-4.433-1.332l-.318-.21-2.934.833.848-2.859-.228-.337A8.064 8.064 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8.093-8 8.093z" />
+                                  </svg>
+                                </a>
                               </div>
                               {cust.email && (
                                 <span className="text-[10px] text-zinc-400 block mt-0.5 truncate max-w-[180px]" title={cust.email}>
@@ -3872,35 +4026,14 @@ export default function AdminDashboardPage() {
                               </span>
                             </td>
                             <td className="py-3 px-4 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
-                                <a
-                                  href={`https://wa.me/${cust.phone.replace(/[^0-9]/g, '')}?text=Hola%20${encodeURIComponent(
-                                    cust.firstName
-                                  )}!%20Te%20contactamos%20de%20Oroño%20Bike.`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={`Enviar WhatsApp a ${cust.firstName}`}
-                                  className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors inline-flex items-center justify-center"
-                                >
-                                  <Send className="w-3.5 h-3.5" />
-                                </a>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedCustomerForPurchases(cust)}
-                                  title="Ver compras y facturas"
-                                  className="px-2 py-1 bg-zinc-950 hover:bg-zinc-800 text-white rounded-lg text-[10px] font-heading font-bold uppercase transition-colors"
-                                >
-                                  Compras
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteCustomer(cust.id, `${cust.firstName} ${cust.lastName}`)}
-                                  title="Eliminar cliente"
-                                  className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCustomer(cust.id, `${cust.firstName} ${cust.lastName}`)}
+                                title="Eliminar cliente"
+                                className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors inline-flex items-center justify-center"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </td>
                           </tr>
                         );
@@ -3980,8 +4113,9 @@ export default function AdminDashboardPage() {
                           <tr>
                             <th className="py-2.5 px-3.5">Fecha</th>
                             <th className="py-2.5 px-3.5">Comprobante (Factura / Remito)</th>
-                            <th className="py-2.5 px-3.5 min-w-[220px]">Artículos / Bicicletas</th>
+                            <th className="py-2.5 px-3.5 min-w-[200px]">Artículos / Bicicletas</th>
                             <th className="py-2.5 px-3.5 text-right">Monto Total</th>
+                            <th className="py-2.5 px-3.5 text-center w-28">Descargar</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-200 font-medium">
@@ -4030,6 +4164,17 @@ export default function AdminDashboardPage() {
                                 </td>
                                 <td className="py-3 px-3.5 text-right font-mono font-bold text-xs text-emerald-700 align-top whitespace-nowrap">
                                   {formatCurrency(pur.total)}
+                                </td>
+                                <td className="py-3 px-3.5 text-center align-top whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadInvoice(selectedCustomerForPurchases, pur)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white rounded-xl text-[10px] font-heading font-bold uppercase tracking-wider transition-all shadow-xs hover:shadow-sm active:scale-95 cursor-pointer"
+                                    title="Descargar o imprimir comprobante en PDF"
+                                  >
+                                    <Download className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>Descargar</span>
+                                  </button>
                                 </td>
                               </tr>
                             );
