@@ -373,6 +373,20 @@ export default function AdminDashboardPage() {
   });
 
   const [receptionProductSearch, setReceptionProductSearch] = useState('');
+  const [receptionSearchSelectedIndex, setReceptionSearchSelectedIndex] = useState<number>(0);
+  const costInputRefs = useRef<{ [rowId: string]: HTMLInputElement | null }>({});
+  const quantityInputRefs = useRef<{ [rowId: string]: HTMLInputElement | null }>({});
+
+  // Modal para agregar un nuevo talle/variante a un producto existente
+  const [showNewVariantModal, setShowNewVariantModal] = useState(false);
+  const [newVariantTargetRowId, setNewVariantTargetRowId] = useState<string | null>(null);
+  const [newVariantForm, setNewVariantForm] = useState({
+    productId: '',
+    size: '',
+    color: 'Negro',
+    sku: '',
+  });
+
   // Modal para dar de alta producto nuevo rápidamente desde la planilla
   const [showQuickNewProductModal, setShowQuickNewProductModal] = useState(false);
   const [quickNewProductForm, setQuickNewProductForm] = useState({
@@ -1020,20 +1034,106 @@ export default function AdminDashboardPage() {
 
   const handleAddProductFromSearch = (product: ProductWithVariants, variant: ProductVariant) => {
     const cost = variant.cost || Math.round((variant.price || 0) / 1.5);
-    setReceptionForm((prev) => {
-      const newRow: ReceptionItemDraft = {
-        id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        productId: product.id,
-        variantId: variant.id,
-        quantity: 1,
-        unitCost: cost,
-      };
-      return {
-        ...prev,
-        items: [...prev.items, newRow],
-      };
-    });
+    const newRowId = `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const newRow: ReceptionItemDraft = {
+      id: newRowId,
+      productId: product.id,
+      variantId: variant.id,
+      quantity: 1,
+      unitCost: cost,
+    };
+    setReceptionForm((prev) => ({
+      ...prev,
+      items: [...prev.items, newRow],
+    }));
     setReceptionProductSearch('');
+    setReceptionSearchSelectedIndex(0);
+
+    // Llevar el foco automáticamente al campo de Costo / Precio de la nueva fila cargada
+    setTimeout(() => {
+      const costEl = costInputRefs.current[newRowId];
+      if (costEl) {
+        costEl.focus();
+        costEl.select();
+      }
+    }, 100);
+  };
+
+  // Crear una nueva variante/talle para un producto existente desde la planilla
+  const handleAddNewVariantToProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVariantForm.productId || !newVariantForm.size.trim()) {
+      alert('Por favor ingresá el nombre del talle (ej. S, M, L, XL, 52cm, etc).');
+      return;
+    }
+
+    const targetProduct = products.find((p) => p.id === newVariantForm.productId);
+    if (!targetProduct) return;
+
+    const newVarId = `var-${Date.now()}`;
+    const baseVar = targetProduct.variants[0];
+    const cost = baseVar?.cost || 0;
+    const price = baseVar?.price || 0;
+
+    const newVariant: ProductVariant = {
+      id: newVarId,
+      product_id: targetProduct.id,
+      sku: newVariantForm.sku.trim() || `${targetProduct.brand.slice(0, 3).toUpperCase()}-${newVariantForm.size.trim().toUpperCase()}-${Date.now().toString().slice(-4)}`,
+      barcode: null,
+      size: newVariantForm.size.trim(),
+      wheel_size: baseVar?.wheel_size || null,
+      color: newVariantForm.color.trim() || baseVar?.color || 'Estándar',
+      color_hex: baseVar?.color_hex || '#18181b',
+      cost,
+      profit_margin_percent: baseVar?.profit_margin_percent || 60,
+      price,
+      compare_at_price: null,
+      stock: 0,
+      min_stock_alert: 2,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Actualizar producto en el estado y localStorage
+    setProducts((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id !== targetProduct.id) return p;
+        return {
+          ...p,
+          variants: [...p.variants, newVariant],
+        };
+      });
+      try {
+        localStorage.setItem('orono_custom_bikes', JSON.stringify(updated));
+      } catch (err) {}
+      return updated;
+    });
+
+    // Si venía de una fila en edición de la planilla, actualizarla con la nueva variante
+    if (newVariantTargetRowId) {
+      handleUpdateReceptionRow(newVariantTargetRowId, {
+        variantId: newVarId,
+        unitCost: cost,
+      });
+
+      // Llevar foco al campo de costo de esa fila
+      setTimeout(() => {
+        const costEl = costInputRefs.current[newVariantTargetRowId];
+        if (costEl) {
+          costEl.focus();
+          costEl.select();
+        }
+      }, 100);
+    }
+
+    setShowNewVariantModal(false);
+    setNewVariantTargetRowId(null);
+    setNewVariantForm({
+      productId: '',
+      size: '',
+      color: 'Negro',
+      sku: '',
+    });
   };
 
   // Manejador para escanear factura mediante foto o archivo con IA
@@ -3261,13 +3361,42 @@ export default function AdminDashboardPage() {
                               type="text"
                               placeholder="🔍 Buscar artículo por descripción, nombre o código SKU (ej: Spark, Cuadro Volta, Cadena Shimano, Casco, etc)..."
                               value={receptionProductSearch}
-                              onChange={(e) => setReceptionProductSearch(e.target.value)}
+                              onChange={(e) => {
+                                setReceptionProductSearch(e.target.value);
+                                setReceptionSearchSelectedIndex(0);
+                              }}
+                              onKeyDown={(e) => {
+                                if (filteredReceptionSearchResults.length === 0) return;
+                                if (e.key === 'ArrowDown') {
+                                  e.preventDefault();
+                                  setReceptionSearchSelectedIndex((prev) =>
+                                    prev < filteredReceptionSearchResults.length - 1 ? prev + 1 : 0
+                                  );
+                                } else if (e.key === 'ArrowUp') {
+                                  e.preventDefault();
+                                  setReceptionSearchSelectedIndex((prev) =>
+                                    prev > 0 ? prev - 1 : filteredReceptionSearchResults.length - 1
+                                  );
+                                } else if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const selected = filteredReceptionSearchResults[receptionSearchSelectedIndex] || filteredReceptionSearchResults[0];
+                                  if (selected) {
+                                    handleAddProductFromSearch(selected.product, selected.variant);
+                                  }
+                                } else if (e.key === 'Escape') {
+                                  setReceptionProductSearch('');
+                                  setReceptionSearchSelectedIndex(0);
+                                }
+                              }}
                               className="w-full pl-10 pr-9 py-2.5 bg-white border-2 border-zinc-200 focus:border-zinc-950 rounded-2xl text-xs font-medium placeholder:text-zinc-400 focus:outline-none shadow-xs transition-colors"
                             />
                             {receptionProductSearch && (
                               <button
                                 type="button"
-                                onClick={() => setReceptionProductSearch('')}
+                                onClick={() => {
+                                  setReceptionProductSearch('');
+                                  setReceptionSearchSelectedIndex(0);
+                                }}
                                 className="absolute right-3.5 text-zinc-400 hover:text-zinc-700 text-xs font-bold"
                               >
                                 ✕
@@ -3296,7 +3425,12 @@ export default function AdminDashboardPage() {
                         {filteredReceptionSearchResults.length > 0 && (
                           <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-2xl shadow-2xl z-30 max-h-64 overflow-y-auto divide-y divide-zinc-100 animate-fadeIn">
                             <div className="px-3.5 py-2 bg-zinc-50 text-[10px] font-heading font-bold uppercase text-zinc-500 tracking-wider flex justify-between items-center">
-                              <span>Coincidencias encontradas ({filteredReceptionSearchResults.length})</span>
+                              <span className="flex items-center gap-2">
+                                <span>Coincidencias ({filteredReceptionSearchResults.length})</span>
+                                <span className="text-[9px] bg-zinc-200 text-zinc-700 px-1.5 py-0.5 rounded font-mono font-normal">
+                                  Usa ↑ ↓ y Enter para elegir
+                                </span>
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -3311,36 +3445,53 @@ export default function AdminDashboardPage() {
                                 ¿No está? + Ingresar como Producto Nuevo
                               </button>
                             </div>
-                            {filteredReceptionSearchResults.map(({ product, variant }) => (
-                              <div
-                                key={`${product.id}-${variant.id}`}
-                                onClick={() => handleAddProductFromSearch(product, variant)}
-                                className="p-2.5 hover:bg-zinc-50 flex items-center justify-between cursor-pointer transition-colors group"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <span className="text-[10px] font-mono font-bold bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded border border-zinc-200 group-hover:bg-zinc-950 group-hover:text-white transition-colors">
-                                    {variant.sku || 'SIN CÓD'}
-                                  </span>
-                                  <div>
-                                    <div className="text-xs font-bold text-zinc-950">
-                                      [{product.brand}] {product.title}
-                                    </div>
-                                    <div className="text-[11px] text-zinc-500">
-                                      Talle: <span className="font-semibold text-zinc-700">{variant.size}</span> ({variant.color}) · Stock actual: <span className="font-mono font-bold text-zinc-700">{variant.stock || 0} u.</span>
+                            {filteredReceptionSearchResults.map(({ product, variant }, itemIdx) => {
+                              const isSelected = itemIdx === receptionSearchSelectedIndex;
+                              return (
+                                <div
+                                  key={`${product.id}-${variant.id}`}
+                                  onClick={() => handleAddProductFromSearch(product, variant)}
+                                  onMouseEnter={() => setReceptionSearchSelectedIndex(itemIdx)}
+                                  className={`p-2.5 flex items-center justify-between cursor-pointer transition-colors group ${
+                                    isSelected ? 'bg-zinc-100 ring-1 ring-zinc-950/20' : 'hover:bg-zinc-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border transition-colors ${
+                                      isSelected
+                                        ? 'bg-zinc-950 text-white border-zinc-950'
+                                        : 'bg-zinc-100 text-zinc-800 border-zinc-200 group-hover:bg-zinc-950 group-hover:text-white'
+                                    }`}>
+                                      {variant.sku || 'SIN CÓD'}
+                                    </span>
+                                    <div>
+                                      <div className="text-xs font-bold text-zinc-950">
+                                        [{product.brand}] {product.title}
+                                      </div>
+                                      <div className="text-[11px] text-zinc-500">
+                                        Talle: <span className="font-semibold text-zinc-700">{variant.size}</span> ({variant.color}) · Stock actual: <span className="font-mono font-bold text-zinc-700">{variant.stock || 0} u.</span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
 
-                                <div className="text-right">
-                                  <span className="text-xs font-mono font-bold text-zinc-950 block">
-                                    Costo: {formatCurrency(variant.cost || Math.round(variant.price / 1.5))}
-                                  </span>
-                                  <span className="text-[10px] text-emerald-600 font-bold uppercase group-hover:underline">
-                                    + Cargar a Planilla
-                                  </span>
+                                  <div className="text-right flex items-center gap-3">
+                                    <div>
+                                      <span className="text-xs font-mono font-bold text-zinc-950 block">
+                                        Costo: {formatCurrency(variant.cost || Math.round(variant.price / 1.5))}
+                                      </span>
+                                      <span className="text-[10px] text-emerald-600 font-bold uppercase group-hover:underline">
+                                        + Cargar a Planilla
+                                      </span>
+                                    </div>
+                                    {isSelected && (
+                                      <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-zinc-900 text-white rounded shadow-xs">
+                                        ↵ Enter
+                                      </kbd>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                         {receptionProductSearch.trim().length > 1 && filteredReceptionSearchResults.length === 0 && (
@@ -3392,12 +3543,12 @@ export default function AdminDashboardPage() {
                             <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-heading font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
                               <tr>
                                 <th className="py-2.5 px-3 text-center w-10">#</th>
-                                <th className="py-2.5 px-3 min-w-[280px]">Artículo / Producto</th>
-                                <th className="py-2.5 px-3 min-w-[180px]">Talle / Variante</th>
-                                <th className="py-2.5 px-3 text-center w-24">Stock Actual</th>
-                                <th className="py-2.5 px-3 text-center w-28">Cant. a Ingresar</th>
+                                <th className="py-2.5 px-3 min-w-[260px]">Artículo / Producto</th>
+                                <th className="py-2.5 px-3 min-w-[210px]">Talle / Variante</th>
+                                <th className="py-2.5 px-3 text-center w-20">Stock</th>
                                 <th className="py-2.5 px-3 text-right min-w-[140px]">Costo Unit. ($ ARS)</th>
-                                <th className="py-2.5 px-3 text-right min-w-[140px]">Subtotal ($ ARS)</th>
+                                <th className="py-2.5 px-3 text-center w-28">Cant. a Ingresar</th>
+                                <th className="py-2.5 px-3 text-right min-w-[130px]">Subtotal ($ ARS)</th>
                                 <th className="py-2.5 px-3 text-center w-12"></th>
                               </tr>
                             </thead>
@@ -3413,7 +3564,7 @@ export default function AdminDashboardPage() {
                                         Planilla de factura vacía
                                       </p>
                                       <p className="text-[11px] text-zinc-500 leading-relaxed">
-                                        Buscá productos arriba por nombre o código, cargá un <strong className="text-emerald-700 font-bold">+ Nuevo Producto</strong>, o hacé clic en <strong className="text-zinc-800 font-bold">+ Agregar Artículo</strong> para empezar a cargar.
+                                        Buscá productos arriba por nombre o código (con flechas ↑ ↓ y Enter), cargá un <strong className="text-emerald-700 font-bold">+ Nuevo Producto</strong>, o hacé clic en <strong className="text-zinc-800 font-bold">+ Agregar Artículo</strong> para empezar a cargar.
                                       </p>
                                     </div>
                                   </td>
@@ -3447,25 +3598,106 @@ export default function AdminDashboardPage() {
                                       </select>
                                     </td>
                                     <td className="py-2.5 px-3">
-                                      <select
-                                        value={row.variantId}
-                                        onChange={(e) => handleUpdateReceptionRow(row.id, { variantId: e.target.value })}
-                                        className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-950"
-                                      >
-                                        {currentProduct?.variants.map((v) => (
-                                          <option key={v.id} value={v.id}>
-                                            {v.size} ({v.color}) {v.sku ? `— Cód: ${v.sku}` : ''}
+                                      <div className="flex items-center gap-1.5">
+                                        <select
+                                          value={row.variantId}
+                                          onChange={(e) => {
+                                            if (e.target.value === '__add_new_variant__') {
+                                              setNewVariantForm({
+                                                productId: currentProduct?.id || '',
+                                                size: '',
+                                                color: currentVariant?.color || 'Negro',
+                                                sku: '',
+                                              });
+                                              setNewVariantTargetRowId(row.id);
+                                              setShowNewVariantModal(true);
+                                              return;
+                                            }
+                                            handleUpdateReceptionRow(row.id, { variantId: e.target.value });
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              const costInput = costInputRefs.current[row.id];
+                                              if (costInput) {
+                                                costInput.focus();
+                                                costInput.select();
+                                              }
+                                            }
+                                          }}
+                                          className="flex-1 px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-xs font-medium text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-950"
+                                        >
+                                          {currentProduct?.variants.map((v) => (
+                                            <option key={v.id} value={v.id}>
+                                              {v.size} ({v.color}) {v.sku ? `— Cód: ${v.sku}` : ''}
+                                            </option>
+                                          ))}
+                                          <option value="__add_new_variant__" className="text-emerald-700 font-bold bg-emerald-50">
+                                            + Agregar nuevo talle...
                                           </option>
-                                        ))}
-                                      </select>
+                                        </select>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setNewVariantForm({
+                                              productId: currentProduct?.id || '',
+                                              size: '',
+                                              color: currentVariant?.color || 'Negro',
+                                              sku: '',
+                                            });
+                                            setNewVariantTargetRowId(row.id);
+                                            setShowNewVariantModal(true);
+                                          }}
+                                          className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-bold flex items-center shrink-0 transition-colors"
+                                          title="Crear un talle nuevo para este artículo"
+                                        >
+                                          <Plus className="w-3 h-3" />
+                                          <span className="hidden sm:inline ml-0.5">Talle</span>
+                                        </button>
+                                      </div>
                                     </td>
                                     <td className="py-2.5 px-3 text-center">
                                       <span className="inline-block px-2 py-0.5 text-[11px] font-mono font-bold text-zinc-600 bg-zinc-100 rounded-md">
                                         {currentVariant?.stock || 0} u.
                                       </span>
                                     </td>
+                                    {/* Costo Unitario (primero que la cantidad) */}
+                                    <td className="py-2.5 px-3">
+                                      <div className="relative">
+                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-400">
+                                          $
+                                        </span>
+                                        <input
+                                          ref={(el) => { costInputRefs.current[row.id] = el; }}
+                                          type="number"
+                                          min={0}
+                                          required
+                                          placeholder="0"
+                                          value={row.unitCost || ''}
+                                          onChange={(e) =>
+                                            handleUpdateReceptionRow(row.id, {
+                                              unitCost: Math.max(0, parseInt(e.target.value) || 0),
+                                            })
+                                          }
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              // Llevar el foco al campo de Cantidad
+                                              const qtyInput = quantityInputRefs.current[row.id];
+                                              if (qtyInput) {
+                                                qtyInput.focus();
+                                                qtyInput.select();
+                                              }
+                                            }
+                                          }}
+                                          className="w-full pl-6 pr-2 py-1.5 font-mono font-bold text-right bg-white border border-zinc-300 rounded-lg text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 transition-all"
+                                        />
+                                      </div>
+                                    </td>
+                                    {/* Cantidad a Ingresar */}
                                     <td className="py-2.5 px-3">
                                       <input
+                                        ref={(el) => { quantityInputRefs.current[row.id] = el; }}
                                         type="number"
                                         min={1}
                                         required
@@ -3475,27 +3707,29 @@ export default function AdminDashboardPage() {
                                             quantity: Math.max(1, parseInt(e.target.value) || 1),
                                           })
                                         }
-                                        className="w-full px-2 py-1.5 text-center font-mono font-bold bg-white border border-zinc-300 rounded-lg text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-zinc-950"
-                                      />
-                                    </td>
-                                    <td className="py-2.5 px-3">
-                                      <div className="relative">
-                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-400">
-                                          $
-                                        </span>
-                                        <input
-                                          type="number"
-                                          min={0}
-                                          required
-                                          value={row.unitCost || ''}
-                                          onChange={(e) =>
-                                            handleUpdateReceptionRow(row.id, {
-                                              unitCost: Math.max(0, parseInt(e.target.value) || 0),
-                                            })
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            // Si es la última fila, volver al buscador de productos arriba para seguir cargando ágilmente
+                                            if (index === receptionForm.items.length - 1) {
+                                              const searchInput = document.querySelector<HTMLInputElement>('input[placeholder*="Buscar artículo"]');
+                                              if (searchInput) {
+                                                searchInput.focus();
+                                                searchInput.select();
+                                              }
+                                            } else {
+                                              // Si hay otra fila, pasar al costo de la siguiente fila
+                                              const nextRow = receptionForm.items[index + 1];
+                                              const nextCost = costInputRefs.current[nextRow.id];
+                                              if (nextCost) {
+                                                nextCost.focus();
+                                                nextCost.select();
+                                              }
+                                            }
                                           }
-                                          className="w-full pl-6 pr-2 py-1.5 font-mono font-bold text-right bg-white border border-zinc-300 rounded-lg text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-zinc-950"
-                                        />
-                                      </div>
+                                        }}
+                                        className="w-full px-2 py-1.5 text-center font-mono font-bold bg-white border border-zinc-300 rounded-lg text-xs text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 transition-all"
+                                      />
                                     </td>
                                     <td className="py-2.5 px-3 text-right font-mono font-bold text-xs text-zinc-950">
                                       {formatCurrency(rowSubtotal)}
@@ -3873,6 +4107,107 @@ export default function AdminDashboardPage() {
                       >
                         <Plus className="w-3.5 h-3.5" />
                         Agregar a la Planilla & Stock
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal para Agregar Nuevo Talle / Variante a Producto Existente */}
+            {showNewVariantModal && (
+              <div className="fixed inset-0 z-[75] bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 animate-fadeIn">
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-zinc-200">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                        <Plus className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-heading font-black text-zinc-950">
+                          Agregar Nuevo Talle / Medida
+                        </h3>
+                        <p className="text-[11px] text-zinc-500">
+                          {products.find((p) => p.id === newVariantForm.productId)?.title || 'Producto seleccionado'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNewVariantModal(false);
+                        setNewVariantTargetRowId(null);
+                      }}
+                      className="text-zinc-400 hover:text-zinc-700 text-base font-bold p-1 rounded-lg"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAddNewVariantToProduct} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                        Talle / Medida *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        placeholder="Ej: S, M, L, XL, 52cm, 29x2.25, etc..."
+                        value={newVariantForm.size}
+                        onChange={(e) => setNewVariantForm({ ...newVariantForm, size: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:bg-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Color (Opcional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Negro / Rojo / etc"
+                          value={newVariantForm.color}
+                          onChange={(e) => setNewVariantForm({ ...newVariantForm, color: e.target.value })}
+                          className="w-full px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-medium focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-heading font-bold uppercase text-zinc-700 mb-1">
+                          Código SKU (Opcional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Auto si se omite"
+                          value={newVariantForm.sku}
+                          onChange={(e) => setNewVariantForm({ ...newVariantForm, sku: e.target.value })}
+                          className="w-full px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-mono focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-[11px] text-purple-900 leading-relaxed">
+                      💡 El nuevo talle se creará en el catálogo y se asignará automáticamente a esta línea de la factura. Luego el cursor irá directo al campo de precio y cantidad.
+                    </div>
+
+                    <div className="flex justify-end gap-2.5 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowNewVariantModal(false);
+                          setNewVariantTargetRowId(null);
+                        }}
+                        className="px-4 py-2 border border-zinc-300 rounded-xl text-xs font-heading font-bold uppercase text-zinc-700 hover:bg-zinc-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-heading font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Guardar Talle y Continuar
                       </button>
                     </div>
                   </form>
