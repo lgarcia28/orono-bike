@@ -5229,41 +5229,41 @@ export default function AdminDashboardPage() {
                   </span>
 
                   {/* Mockup del Pop-up */}
-                  <div className="bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-lg text-white">
-                    <div className="relative h-28 w-full overflow-hidden">
+                  <div className="bg-white rounded-2xl overflow-hidden border border-zinc-200 shadow-md text-zinc-900">
+                    <div className="relative h-28 w-full overflow-hidden bg-zinc-100">
                       <img
                         src={promoSettings.imageUrl || 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=600&q=80'}
                         alt="Preview"
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-white via-white/20 to-transparent" />
                       <div className="absolute bottom-2 left-4">
-                        <span className="inline-block px-2 py-0.5 bg-amber-400 text-zinc-950 text-[9px] font-heading font-black uppercase rounded-full">
+                        <span className="inline-block px-2 py-0.5 bg-amber-400 text-zinc-950 text-[9px] font-heading font-black uppercase rounded-full shadow-xs">
                           {promoSettings.badgeText || 'BENEFICIO EXCLUSIVO'}
                         </span>
                       </div>
                     </div>
 
                     <div className="p-4 space-y-2">
-                      <h4 className="text-sm font-heading font-black text-white leading-tight">
+                      <h4 className="text-sm font-heading font-black text-zinc-950 leading-tight">
                         {promoSettings.title || 'Título de la promoción'}
                       </h4>
-                      <p className="text-[11px] text-zinc-400 line-clamp-2">
+                      <p className="text-[11px] text-zinc-600 line-clamp-2">
                         {promoSettings.subtitle || 'Descripción de la promoción...'}
                       </p>
 
                       <div className="flex gap-1.5 pt-1">
-                        <div className="flex-1 h-8 bg-zinc-900 border border-zinc-700 rounded-lg px-2 text-[10px] text-zinc-500 flex items-center">
+                        <div className="flex-1 h-8 bg-zinc-50 border border-zinc-300 rounded-lg px-2 text-[10px] text-zinc-400 flex items-center">
                           ejemplo@email.com
                         </div>
-                        <div className="h-8 px-3 bg-amber-400 text-zinc-950 font-heading text-[10px] font-black uppercase rounded-lg flex items-center justify-center">
+                        <div className="h-8 px-3 bg-zinc-950 text-white font-heading text-[10px] font-black uppercase rounded-lg flex items-center justify-center">
                           {promoSettings.benefitType === 'gift' ? 'Quiero mi Regalo' : `Quiero mi ${promoSettings.discountPercent}% OFF`}
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-zinc-800 flex justify-between items-center text-[10px] text-zinc-500">
-                        <span>Cupón entregado: <strong className="font-mono text-amber-400">{promoSettings.couponCode}</strong></span>
-                        <span className="text-zinc-600">Demora: {promoSettings.delaySeconds}s</span>
+                      <div className="pt-2 border-t border-zinc-100 flex justify-between items-center text-[10px] text-zinc-500">
+                        <span>Cupón entregado: <strong className="font-mono text-zinc-900">{promoSettings.couponCode}</strong></span>
+                        <span className="text-zinc-500">Demora: {promoSettings.delaySeconds}s</span>
                       </div>
                     </div>
                   </div>
