@@ -37,7 +37,7 @@ export function PromoPopup() {
 
     // 1. Disparador por tiempo (Delay en segundos)
     const timer = setTimeout(() => {
-      // Si el modal no está abierto y no se suscribió, abrirlo
+      // Si el modal no fue cerrado en esta sesión y no se suscribió, abrirlo
       if (!sessionStorage.getItem('orono_promo_closed_session')) {
         setIsOpen(true);
       }
@@ -45,7 +45,11 @@ export function PromoPopup() {
 
     // 2. Disparador por intención de salida en PC (mouse sale hacia la barra del navegador)
     const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 10 && !localStorage.getItem(STORAGE_SUBSCRIBED_KEY)) {
+      if (
+        e.clientY <= 10 &&
+        !localStorage.getItem(STORAGE_SUBSCRIBED_KEY) &&
+        !sessionStorage.getItem('orono_promo_closed_session')
+      ) {
         setIsOpen(true);
       }
     };
