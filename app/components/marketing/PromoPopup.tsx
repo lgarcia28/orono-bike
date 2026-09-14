@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { PromoService, PromoPopupSettings, DEFAULT_PROMO_SETTINGS } from '@/lib/services/promo.service';
 import { X, Sparkles, Copy, Check, ArrowRight, Gift, Tag, Mail } from 'lucide-react';
 
-const STORAGE_DISMISSED_KEY = 'orono_promo_dismissed';
+const STORAGE_SUBSCRIBED_KEY = 'orono_promo_subscribed';
 
 export function PromoPopup() {
   const [settings, setSettings] = useState<PromoPopupSettings>(DEFAULT_PROMO_SETTINGS);
@@ -16,6 +16,11 @@ export function PromoPopup() {
 
   useEffect(() => {
     setIsMounted(true);
+    // Limpiar flag viejo 'orono_promo_dismissed' si existía para que vuelva a aparecer
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('orono_promo_dismissed');
+    }
+
     const currentSettings = PromoService.getSettings();
     setSettings(currentSettings);
 
@@ -24,20 +29,23 @@ export function PromoPopup() {
     };
     window.addEventListener('promoSettingsUpdated', handleUpdate);
 
-    // Verificar si ya fue cerrado o suscrito previamente
-    const wasDismissed = localStorage.getItem(STORAGE_DISMISSED_KEY);
-    if (!currentSettings.enabled || wasDismissed) {
+    // Solo bloquear si ya ingresó su email previamente (suscripto)
+    const isAlreadySubscribed = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_SUBSCRIBED_KEY) : null;
+    if (!currentSettings.enabled || isAlreadySubscribed) {
       return () => window.removeEventListener('promoSettingsUpdated', handleUpdate);
     }
 
     // 1. Disparador por tiempo (Delay en segundos)
     const timer = setTimeout(() => {
-      setIsOpen(true);
+      // Si el modal no está abierto y no se suscribió, abrirlo
+      if (!sessionStorage.getItem('orono_promo_closed_session')) {
+        setIsOpen(true);
+      }
     }, Math.max(1, currentSettings.delaySeconds) * 1000);
 
-    // 2. Disparador por intención de salida en PC (mouse sale hacia arriba)
+    // 2. Disparador por intención de salida en PC (mouse sale hacia la barra del navegador)
     const handleMouseLeave = (e: MouseEvent) => {
-      if (e.clientY <= 10 && !localStorage.getItem(STORAGE_DISMISSED_KEY)) {
+      if (e.clientY <= 10 && !localStorage.getItem(STORAGE_SUBSCRIBED_KEY)) {
         setIsOpen(true);
       }
     };
@@ -52,8 +60,10 @@ export function PromoPopup() {
 
   const handleClose = () => {
     setIsOpen(false);
+    // Marcamos solo en sessionStorage para que no vuelva a saltar en la misma navegación de páginas inmediata,
+    // pero si recarga la página o entra de nuevo y no dejó mail, ¡le vuelve a aparecer!
     if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_DISMISSED_KEY, 'true');
+      sessionStorage.setItem('orono_promo_closed_session', 'true');
     }
   };
 
@@ -65,7 +75,8 @@ export function PromoPopup() {
     if (res.success) {
       setIsSubmitted(true);
       if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_DISMISSED_KEY, 'true');
+        // Al ingresar el email, acá sí se guarda permanente para no mostrarle más la promo
+        localStorage.setItem(STORAGE_SUBSCRIBED_KEY, 'true');
       }
     }
   };
