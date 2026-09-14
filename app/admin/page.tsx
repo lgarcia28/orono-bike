@@ -5187,6 +5187,35 @@ export default function AdminDashboardPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Restricción: Exclusivo Primera Compra */}
+                  <div className="p-4 bg-purple-50/60 border border-purple-200 rounded-2xl flex items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-heading font-bold text-zinc-950">
+                          Exclusivo para la Primera Compra
+                        </span>
+                        <span className="text-[9px] font-mono font-black uppercase px-2 py-0.5 bg-purple-200 text-purple-900 rounded-full">
+                          Antifraude
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-zinc-600 block mt-0.5">
+                        {promoSettings.firstPurchaseOnly !== false
+                          ? 'Activado: El checkout valida por Email y DNI/CUIT que el cliente no tenga compras previas.'
+                          : 'Desactivado: Cualquier cliente puede utilizar el cupón, incluso si ya compró antes.'}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={promoSettings.firstPurchaseOnly !== false}
+                      onChange={(e) => {
+                        const updated = { ...promoSettings, firstPurchaseOnly: e.target.checked };
+                        setPromoSettings(updated);
+                        PromoService.saveSettings(updated);
+                      }}
+                      className="w-5 h-5 rounded text-purple-600 focus:ring-purple-500"
+                    />
+                  </div>
                 </div>
               </div>
 

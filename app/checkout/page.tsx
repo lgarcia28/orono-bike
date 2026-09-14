@@ -137,6 +137,15 @@ export default function CheckoutPage() {
     const activeCode = (promoSettings.couponCode || 'BIENVENIDO10').trim().toUpperCase();
 
     if (cleanInput === activeCode) {
+      // Si la promo está configurada solo para primera compra y el cliente ya ingresó datos
+      if (promoSettings.firstPurchaseOnly !== false) {
+        const check = PromoService.isCustomerFirstTimeBuyer(formData.email, formData.docNumber);
+        if (!check.isFirstTime) {
+          setCouponError(check.reason || 'Este cupón es exclusivo para la primera compra.');
+          return;
+        }
+      }
+
       if (promoSettings.benefitType === 'discount') {
         setAppliedCoupon({
           code: activeCode,
@@ -198,6 +207,16 @@ export default function CheckoutPage() {
     if (formData.shippingType === 'andreani_standard' && (!formData.street.trim() || !formData.streetNumber.trim())) {
       alert('Por favor completá la dirección de entrega a domicilio.');
       return;
+    }
+
+    // Doble verificación: si tiene cupón de primera compra aplicado pero ya registra compras previas
+    if (appliedCoupon && promoSettings.firstPurchaseOnly !== false) {
+      const check = PromoService.isCustomerFirstTimeBuyer(formData.email, formData.docNumber);
+      if (!check.isFirstTime) {
+        alert(`Atención: ${check.reason || 'Este cupón es exclusivo para la primera compra.'}\n\nSe removerá el beneficio para continuar con el pedido.`);
+        setAppliedCoupon(null);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -262,6 +281,9 @@ export default function CheckoutPage() {
       const result = await OrdersService.createOrder(orderPayload);
 
       if (result.success && result.order) {
+        // Registrar comprador para evitar reuso futuro de cupones de bienvenida
+        PromoService.recordBuyer(formData.email, formData.docNumber, result.order.order_number);
+
         setCompletedOrder({
           ...result.order,
           calculatedUSD: totalUSD,
